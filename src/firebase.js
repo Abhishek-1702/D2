@@ -22,9 +22,6 @@ let storage = null;
 let db = null;
 let auth = null;
 
-console.log("Project ID:", firebaseConfig.projectId);
-console.log("Storage Bucket:", firebaseConfig.storageBucket);
-console.log("Firebase Configured:", isFirebaseConfigured);
 
 if (isFirebaseConfigured) {
   try {
