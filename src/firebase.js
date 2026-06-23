@@ -4,6 +4,8 @@ import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } f
 import { getFirestore, collection, addDoc, serverTimestamp, deleteDoc, doc, getDocs, query, orderBy, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as fbSignOut, onAuthStateChanged } from "firebase/auth";
 
+
+
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -20,11 +22,15 @@ let storage = null;
 let db = null;
 let auth = null;
 
+console.log("Project ID:", firebaseConfig.projectId);
+console.log("Storage Bucket:", firebaseConfig.storageBucket);
+console.log("Firebase Configured:", isFirebaseConfigured);
+
 if (isFirebaseConfigured) {
   try {
     app = initializeApp(firebaseConfig);
     storage = getStorage(app);
-    db = getFirestore(app, "kesco-dashboard");
+    db = getFirestore(app);
     auth = getAuth(app);
   } catch (e) {
     console.error("Firebase init error:", e);
@@ -53,7 +59,7 @@ export async function signOutUser() {
 }
 
 export function onAuthChange(callback) {
-  if (!auth) return () => {};
+  if (!auth) return () => { };
   return onAuthStateChanged(auth, callback);
 }
 
@@ -69,7 +75,7 @@ export async function uploadFileToStorage(file, pathPrefix = "meetings") {
   const snapshot = await new Promise((resolve, reject) => {
     uploadTask.on(
       'state_changed',
-      () => {},
+      () => { },
       (error) => reject(error),
       () => resolve(uploadTask.snapshot)
     );
