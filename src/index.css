@@ -30,6 +30,18 @@
   .scrollable-smooth {
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Mobile-specific touch optimizations */
+  button, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area support for notched devices */
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
 }
 
 @layer utilities {
@@ -45,6 +57,20 @@
 
   .marquee-animation:hover {
     animation-play-state: paused;
+  }
+
+  /* Mobile utilities */
+  .touch-friendly {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .mobile-hidden {
+    @apply hidden sm:block;
+  }
+
+  .mobile-visible {
+    @apply sm:hidden;
   }
 }
 
@@ -69,3 +95,15 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Mobile portrait and landscape */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  h1 { @apply text-xl; }
+  h2 { @apply text-lg; }
+  h3 { @apply text-base; }
+}
+

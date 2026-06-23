@@ -13,14 +13,14 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="flex flex-col min-h-screen bg-gray-50 w-screen overflow-x-hidden">
         <UppclHeader
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           language={language}
           setLanguage={setLanguage}
         />
-        <main id="main-content" className="flex-1 w-full bg-[#f4f7f6]">
+        <main id="main-content" className="flex-1 w-full bg-[#f4f7f6] overflow-x-hidden">
           {activeTab === "dashboard" && <Dashboard language={language} />}
           {activeTab === "projects" && <Projects language={language} />}
           {activeTab === "meetings" && <Meetings language={language} />}
