@@ -29,7 +29,7 @@ export async function uploadFileToStorage(
 
   const { error } =
     await supabase.storage
-      .from("documents")
+      .from("Documents")
       .upload(filePath, file);
 
   if (error) {
@@ -39,7 +39,7 @@ export async function uploadFileToStorage(
 
   const { data } =
     supabase.storage
-      .from("documents")
+      .from("Documents")
       .getPublicUrl(filePath);
 
   return {
@@ -60,7 +60,7 @@ export async function deleteFile(filePath) {
 
   const { error } =
     await supabase.storage
-      .from("documents")
+      .from("Documents")
       .remove([filePath]);
 
   if (error) throw error;
@@ -78,7 +78,7 @@ export async function listFiles(
 
   const { data, error } =
     await supabase.storage
-      .from("documents")
+      .from("Documents")
       .list(folder);
 
   if (error) throw error;
