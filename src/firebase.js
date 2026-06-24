@@ -17,6 +17,10 @@ const firebaseConfig = {
 
 export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.storageBucket);
 
+console.log("Project ID:", firebaseConfig.projectId);
+console.log("Storage Bucket:", firebaseConfig.storageBucket);
+console.log("Firebase Configured:", isFirebaseConfigured);
+
 let app = null;
 let storage = null;
 let db = null;
@@ -35,6 +39,7 @@ if (isFirebaseConfigured) {
     auth = null;
   }
 }
+
 
 export { auth, db };
 
