@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X } from "lucide-react";
 import { OFFICERS } from "../data/officers";
-import { isFirebaseConfigured, uploadFileToStorage, saveMeetingToFirestore, loadMeetingsFromFirestore } from "../firebase";
+import { isFirebaseConfigured , saveMeetingToFirestore, loadMeetingsFromFirestore } from "../firebase";
+import { uploadFileToStorage } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Meetings() {

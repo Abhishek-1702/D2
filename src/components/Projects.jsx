@@ -9,7 +9,8 @@ import {
   Target, CheckSquare, BookOpen, AlertCircle, X, Link as LinkIcon
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
-import { addProjectLink, removeProjectLink, isFirebaseConfigured, uploadFileToStorage, setProjectPpt, loadProjectData } from "../firebase";
+import { addProjectLink, removeProjectLink, isFirebaseConfigured , setProjectPpt, loadProjectData } from "../firebase";
+import { uploadFileToStorage } from "../supabase";
 import Toast from "./Toast";
 
 const STATUS_STYLES = {
