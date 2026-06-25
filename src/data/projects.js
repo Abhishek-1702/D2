@@ -296,9 +296,10 @@ export const TEAM_MEMBERS = [
 export const RECENT_ACTIVITY = [
   { task: "integrated new data received from complaint analysis and theft analysis teams", project:"Dashboard Analysis", member:"Harshika Sharma", time:"jun 24, 12:30 Pm", type:"update", avatar:"HS"},
   { task: "updated members details and project progress percentage in the dashboard", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 23, 11:40 Am", type:"update", avatar:"NG"},
+  { task: "Helpdesk Analysis Completed , Created detailed report for critical complaints categories, backlog risk and service improvement , Created Excel Report ", project:"Complaint Analysis", member:"Sibgha", time:"jun 22, 1:40 Pm", type:"update", avatar:"SI"},
   { task: "Completed the development of local tool for large data file analysis and summary report",project: "Theft Analysis", member:"Sarthak Katiyar", time:"jun 18, 12:50 Pm", type:"update", avatar:"SK"},
-  { task: "Enhanced Deshboard UI with improved color scheme and modern visual design", project: "KESCO Dashboard", member:"Harshika Sharma", time: "jun 18, 2:00 pm",type: "update", avatar: "HS"},
-  { task: "Complete Operational Analysis, Created detailed report on Problem Areas, Resolution Latency and Geographical Problem Analysis", project:"complaint analysis", member:"sibgha", time:"jun 18,3:00 Pm", type:"update", avatar:"SG"},
+  { task: "Enhanced Deshboard UI with improved color scheme and modern visual design", project: "KESCO Dashboard", member:"Harshika Sharma", time: "jun 18, 2:00 pm",type: "update", avatar: "HS"}, 
+  { task: "Complete Operational Analysis, Created detailed report on Problem Areas, Resolution Latency and Geographical Problem Analysis", project:"complaint analysis", member:"Hridhima Srivastav", time:"jun 18,3:00 Pm", type:"update", avatar:"HS"},
   { task: "Plots on master data drawn and visualized looking for problem specific data for further working", project:"Theft analysis", member:"Swapnil Hayaran", time:"jun 16,12:50 PM", type: "update", avatar:"SH"},
   {task: "Updated files tab. Drive links can be directly added.", project: "Dashboard Analysis", member: "Abhishek Yadav" , time: "Jun 15, 11:30 AM", type: "update", avatar: "AY"},
   {task: "Dashboard Updated with recent complaint analysis findings. Adding complaint trend to the dashboard.", project: "Dashboard Analysis", member: "Harshika Sharma" , time: "Jun 12, 2:30 PM", type: "update", avatar: "HS"},
