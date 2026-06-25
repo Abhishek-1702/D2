@@ -15,7 +15,7 @@ export const supabase = isSupabaseConfigured
  */
 export async function uploadFileToStorage(
   file,
-  folder = "projects"
+  folder = "Documents"
 ) {
   if (!supabase) {
     throw new Error("Supabase not initialized");
@@ -70,7 +70,7 @@ export async function deleteFile(filePath) {
  * List files in folder
  */
 export async function listFiles(
-  folder = "projects"
+  folder = "Documents"
 ) {
   if (!supabase) {
     throw new Error("Supabase not initialized");
