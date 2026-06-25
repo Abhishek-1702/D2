@@ -305,6 +305,14 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
         >
           Smart Meter Info
         </a>
+        <a
+          href="https://consumer.uppcl.org/wss/bill-payment-services"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
+        >
+          Pay Bill Online
+        </a>
       </div>
 
       {modalOpen && createPortal(
