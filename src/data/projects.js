@@ -25,7 +25,7 @@ export const PROJECTS = [
       "Peak demand prediction report",
       "Planning recommendations document",
     ],
-    progress: 5,
+    progress: 30,
     updates: [
       {
         date: "2026-06-10",
@@ -63,15 +63,15 @@ export const PROJECTS = [
         { month: "Jan", forecast: 0, actual: 0 },
         { month: "Feb", forecast: 0, actual: 0 },
         { month: "Mar", forecast: 0, actual: 0 },
-        { month: "Apr", forecast: 0, actual: 0 },
+        { month: "Apr", forecast: 1, actual: 2 },
         { month: "May", forecast: 0, actual: 0 },
-        { month: "Jun", forecast: 0, actual: 0 },
+        { month: "Jun", forecast: 4, actual: 5 },
       ],
       line: [
-        { day: "Mon", load: 0 },
-        { day: "Tue", load: 0 },
+        { day: "Mon", load: 4 },
+        { day: "Tue", load: 6 },
         { day: "Wed", load: 0 },
-        { day: "Thu", load: 0 },
+        { day: "Thu", load: 2 },
         { day: "Fri", load: 0 },
         { day: "Sat", load: 0 },
         { day: "Sun", load: 0 },
@@ -105,7 +105,7 @@ export const PROJECTS = [
       "Usage pattern graphs",
       "Energy saving recommendations",
     ],
-    progress: 5,
+    progress: 40,
     updates: [
       {
         date: "2026-06-10",
@@ -132,14 +132,14 @@ export const PROJECTS = [
     
     chartData: {
       pie: [
-        { name: "Domestic", value: 0, color: "#F5C400" },
-        { name: "Commercial", value: 0, color: "#3B82F6" },
-        { name: "Industrial", value: 0, color: "#10B981" },
+        { name: "Domestic", value: 10, color: "#F5C400" },
+        { name: "Commercial", value: 12, color: "#3B82F6" },
+        { name: "Industrial", value: 14, color: "#10B981" },
       ],
       bar: [
-        { segment: "Domestic", avgKwh: 0 },
-        { segment: "Commercial", avgKwh: 0 },
-        { segment: "Industrial", avgKwh: 0 },
+        { segment: "Domestic", avgKwh: 10 },
+        { segment: "Commercial", avgKwh: 12 },
+        { segment: "Industrial", avgKwh: 14 },
       ],
     },
     ppt: null,
@@ -170,7 +170,7 @@ export const PROJECTS = [
       "High-loss area identification map",
       "Improvement suggestions and action plan",
     ],
-    progress: 10,
+    progress: 30,
     updates: [
       {
         date: "2026-06-10",
@@ -197,17 +197,17 @@ export const PROJECTS = [
     
     chartData: {
       bar: [
-        { division: "Div 1", loss: 0 },
+        { division: "Div 1", loss: 2 },
         { division: "Div 2", loss: 0 },
-        { division: "Div 3", loss: 0 },
+        { division: "Div 3", loss: 1 },
         { division: "Div 4", loss: 0 },
-        { division: "Div 5", loss: 0 },
-        { division: "Div 6", loss: 0 },
+        { division: "Div 5", loss: 6 },
+        { division: "Div 6", loss: 3 },
       ],
       pie: [
-        { name: "Theft/Tampering", value: 0, color: "#EF4444" },
-        { name: "Meter Issues", value: 0, color: "#F59E0B" },
-        { name: "Billing Errors", value: 0, color: "#3B82F6" },
+        { name: "Theft/Tampering", value: 2, color: "#EF4444" },
+        { name: "Meter Issues", value: 3, color: "#F59E0B" },
+        { name: "Billing Errors", value: 5, color: "#3B82F6" },
         { name: "Other Losses", value: 0, color: "#6B7280" },
       ],
     },
@@ -239,7 +239,7 @@ export const PROJECTS = [
       "Resolution efficiency analysis",
       "Service improvement action plan",
     ],
-    progress: 25,
+    progress: 60,
     updates: [
       {
         date: "2026-06-10",
@@ -259,14 +259,14 @@ export const PROJECTS = [
     
     chartData: {
       bar: [
-        { category: "Power Outage", count: 0 },
-        { category: "Billing", count: 0 },
-        { category: "Meter Issue", count: 0 },
-        { category: "Voltage", count: 0 },
-        { category: "Other", count: 0 },
+        { category: "Power Outage", count: 20},
+        { category: "Billing", count: 40 },
+        { category: "Meter Issue", count: 25 },
+        { category: "Voltage", count: 50 },
+        { category: "Other", count: 60 },
       ],
       pie: [
-        { name: "Awaiting Data", value: 0, color: "#D1D5DB" },
+        { name: "Awaiting Data", value: 50, color: "#D1D5DB" },
       ],
     },
     ppt: null,
@@ -288,9 +288,18 @@ export const TEAM_MEMBERS = [
   { name: "Abhishek Yadav", role: "Intern", avatar: "AY" },
   { name: "Nisha Gond", role: "Intern", avatar: "NG" },
   { name: "Harshika Sharma", role: "Intern", avatar: "HS" },
+  { name: "chinmay kumar gupta", role:"Intern",avatar:"CKG"},
+  { name: "mayank Snakhwar", role:"Intern",avatar:"MS"},
+  
 ];
 
 export const RECENT_ACTIVITY = [
+  { task: "integrated new data received from complaint analysis and theft analysis teams", project:"Dashboard Analysis", member:"Harshika Sharma", time:"jun 24, 12:30 Pm", type:"update", avatar:"HS"},
+  { task: "updated members details and project progress percentage in the dashboard", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 23, 11:40 Am", type:"update", avatar:"NG"},
+  { task: "Completed the development of local tool for large data file analysis and summary report",project: "Theft Analysis", member:"Sarthak Katiyar", time:"jun 18, 12:50 Pm", type:"update", avatar:"SK"},
+  { task: "Enhanced Deshboard UI with improved color scheme and modern visual design", project: "KESCO Dashboard", member:"Harshika Sharma", time: "jun 18, 2:00 pm",type: "update", avatar: "HS"},
+  { task: "Complete Operational Analysis, Created detailed report on Problem Areas, Resolution Latency and Geographical Problem Analysis", project:"complaint analysis", member:"sibgha", time:"jun 18,3:00 Pm", type:"update", avatar:"SG"},
+  { task: "Plots on master data drawn and visualized looking for problem specific data for further working", project:"Theft analysis", member:"Swapnil Hayaran", time:"jun 16,12:50 PM", type: "update", avatar:"SH"},
   {task: "Updated files tab. Drive links can be directly added.", project: "Dashboard Analysis", member: "Abhishek Yadav" , time: "Jun 15, 11:30 AM", type: "update", avatar: "AY"},
   {task: "Dashboard Updated with recent complaint analysis findings. Adding complaint trend to the dashboard.", project: "Dashboard Analysis", member: "Harshika Sharma" , time: "Jun 12, 2:30 PM", type: "update", avatar: "HS"},
   {task: "Substation wise complaint profile uploaded. Analysing Helpdesk data.", project: "Complaint Analysis", member: "Hridhima Srivastav" , time: "Jun 12, 12:30 PM", type: "update", avatar: "HS"},
@@ -300,4 +309,4 @@ export const RECENT_ACTIVITY = [
   { task: "Categorization and analysis", project: "Revenue - Loss Analysis", member: "Sanskriti Jaiswal", time: "Jun 10, 12:00 PM", type: "update", avatar: "SJ" },
   { task: "Analysis and cleaning the Data", project: "Complaint Analysis", member: "Hridhima Srivastav", time: "Jun 10, 11:00 AM", type: "update", avatar: "HS" },
   { task: "Dashboard Development started", project: "KESCO Dashboard", member: "Abhishek Yadav" , time: "Jun 10, 12:30 PM", type: "update", avatar: "AY"},
-];
+  ];
