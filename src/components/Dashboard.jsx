@@ -34,7 +34,7 @@ export default function Dashboard({ language }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8 sm:mb-10">
         
         {/* Column 1 */}
-        <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
+       <div className="border border-gray-500 rounded-2xl shadow-md bg-white flex flex-col overflow-hidden">
           <div className="bg-[#e85d0f] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>📋</span> <span className="hidden sm:inline">KPI OVERVIEW</span><span className="sm:hidden">KPI</span>
           </div>
@@ -66,7 +66,7 @@ export default function Dashboard({ language }) {
         </div>
 
         {/* Column 2 */}
-        <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
+        <div className="border border-gray-500 rounded-2xl shadow-md bg-white flex flex-col overflow-hidden">
           <div className="bg-[#7c3aed] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>🚀</span> <span className="hidden sm:inline">PROJECT HIGHLIGHTS</span><span className="sm:hidden">PROJECTS</span>
           </div>
@@ -86,7 +86,7 @@ export default function Dashboard({ language }) {
         </div>
 
         {/* Column 3 */}
-        <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
+       <div className="border border-gray-500 rounded-2xl shadow-md bg-white flex flex-col overflow-hidden">
           <div className="bg-[#0891b2] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>📊</span> <span className="hidden sm:inline">ANALYTICS</span><span className="sm:hidden">ANALYTICS</span>
           </div>
@@ -113,7 +113,7 @@ export default function Dashboard({ language }) {
         </div>
 
         {/* Column 4 - Replaced with Team Members List to restore missing names if needed, or keep Activity summary */}
-        <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
+        <div className="border border-gray-500 rounded-2xl shadow-md bg-white flex flex-col overflow-hidden">
           <div className="bg-[#059669] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>👥</span> <span className="hidden sm:inline">TEAM DIRECTORY</span><span className="sm:hidden">TEAM</span>
           </div>
