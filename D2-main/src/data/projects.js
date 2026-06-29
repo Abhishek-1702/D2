@@ -294,6 +294,7 @@ export const TEAM_MEMBERS = [
 ];
 
 export const RECENT_ACTIVITY = [
+  { task: "Enhanced dashboard UI and responsiveness", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 29, 2:30 Pm", type:"update", avatar:"NG"},
   { task: "integrated new data received from complaint analysis and theft analysis teams", project:"Dashboard Analysis", member:"Harshika Sharma", time:"jun 24, 12:30 Pm", type:"update", avatar:"HS"},
   { task: "updated members details and project progress percentage in the dashboard", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 23, 11:40 Am", type:"update", avatar:"NG"},
   { task: "Completed the development of local tool for large data file analysis and summary report",project: "Theft Analysis", member:"Sarthak Katiyar", time:"jun 18, 12:50 Pm", type:"update", avatar:"SK"},
