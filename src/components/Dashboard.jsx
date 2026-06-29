@@ -35,7 +35,7 @@ export default function Dashboard({ language }) {
         
         {/* Column 1 */}
         <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
-          <div className="bg-[#ff6f3b] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
+          <div className="bg-[#e85d0f] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>📋</span> <span className="hidden sm:inline">KPI OVERVIEW</span><span className="sm:hidden">KPI</span>
           </div>
           <div className="p-3 sm:p-4 flex-1">
@@ -67,7 +67,7 @@ export default function Dashboard({ language }) {
 
         {/* Column 2 */}
         <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
-          <div className="bg-[#ff6f3b] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
+          <div className="bg-[#7c3aed] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>🚀</span> <span className="hidden sm:inline">PROJECT HIGHLIGHTS</span><span className="sm:hidden">PROJECTS</span>
           </div>
           <div className="p-3 sm:p-4 flex-1">
@@ -87,7 +87,7 @@ export default function Dashboard({ language }) {
 
         {/* Column 3 */}
         <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
-          <div className="bg-[#ff6f3b] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
+          <div className="bg-[#0891b2] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>📊</span> <span className="hidden sm:inline">ANALYTICS</span><span className="sm:hidden">ANALYTICS</span>
           </div>
           <div className="p-3 sm:p-4 flex-1">
@@ -114,7 +114,7 @@ export default function Dashboard({ language }) {
 
         {/* Column 4 - Replaced with Team Members List to restore missing names if needed, or keep Activity summary */}
         <div className="border border-gray-200 shadow-sm bg-white flex flex-col">
-          <div className="bg-[#ff6f3b] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
+          <div className="bg-[#059669] text-white font-bold px-3 sm:px-4 py-2 sm:py-3 uppercase flex items-center gap-2 text-xs sm:text-sm">
              <span>👥</span> <span className="hidden sm:inline">TEAM DIRECTORY</span><span className="sm:hidden">TEAM</span>
           </div>
           <div className="p-3 sm:p-4 flex-1 max-h-[220px] overflow-y-auto">
