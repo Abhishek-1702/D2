@@ -106,6 +106,9 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
             </button>
           </div>
           <div className="flex items-center gap-2 flex-1 lg:flex-none min-w-0">
+            <div className="hidden sm:block rounded-full bg-white/15 px-2 lg:px-3 py-1 text-[10px] lg:text-[11px] font-semibold whitespace-nowrap">
+              {formattedTime}
+            </div>
             <div className="relative flex-1 lg:flex-none">
               <input
                 type="text"
@@ -129,9 +132,6 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                   </ul>
                 </div>
               )}
-            </div>
-            <div className="hidden sm:block rounded-full bg-white/15 px-2 lg:px-3 py-1 text-[10px] lg:text-[11px] font-semibold whitespace-nowrap">
-              {formattedTime}
             </div>
             <div className="hidden lg:block rounded-full bg-[#ffeb3b] px-3 py-1 text-[11px] font-semibold text-black">
               8th June - 18th July 2026

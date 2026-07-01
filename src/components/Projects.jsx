@@ -62,6 +62,35 @@ export default function Projects() {
   }, [handleKeyDown]);
 
   useEffect(() => {
+    try {
+      const savedView = window.localStorage.getItem("kesco_project_view");
+      if (!savedView) return;
+      const parsed = JSON.parse(savedView);
+      if (parsed.projectId) {
+        const restoredProject = projects.find((project) => project.id === parsed.projectId);
+        if (restoredProject) {
+          setSelected(restoredProject);
+          if (parsed.subTab) setActiveTab(parsed.subTab);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to restore project view", error);
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    if (!selected) {
+      window.localStorage.removeItem("kesco_project_view");
+      return;
+    }
+
+    window.localStorage.setItem(
+      "kesco_project_view",
+      JSON.stringify({ projectId: selected.id, subTab: activeTab })
+    );
+  }, [selected, activeTab]);
+
+  useEffect(() => {
     if (!selected) return;
     const syncedProject = projects.find((project) => project.id === selected.id);
     if (syncedProject && JSON.stringify(syncedProject) !== JSON.stringify(selected)) {
@@ -672,8 +701,8 @@ function UploadTab({ project, onUploadPpt }) {
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-yellow-50/40 p-4 text-sm text-gray-600">
-        <p className="font-semibold text-gray-700 mb-1">Upload area</p>
-        <p>Use this section to add a new document or presentation for this project. Files uploaded here will appear in the saved documents section.</p>
+        <p className="font-semibold text-gray-700 mb-1">Upload section</p>
+        <p>Upload a new document or presentation for this project. Files uploaded here will appear in the saved documents section.</p>
       </div>
     </div>
   );

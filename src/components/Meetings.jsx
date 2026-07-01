@@ -37,17 +37,6 @@ export default function Meetings() {
   const [officer, setOfficer] = useState("");
   const fileInputRef = useRef(null);
 
-  const handleFiles = (files) => {
-    const arr = Array.from(files).map((f) => ({
-      id: `${Date.now()}-${f.name}`,
-      name: f.name,
-      size: f.size,
-      type: f.type,
-      url: URL.createObjectURL(f),
-    }));
-    return arr;
-  };
-
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const canManageDocuments = isAdminUser(user);

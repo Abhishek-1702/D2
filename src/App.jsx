@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import UppclHeader from "./components/UppclHeader";
 import Dashboard from "./components/Dashboard";
 import Projects from "./components/Projects";
@@ -8,8 +8,26 @@ import FetchDocument from "./components/FetchDocument";
 import { AuthProvider } from "./contexts/AuthContext";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [language, setLanguage] = useState("en");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return "dashboard";
+    return window.localStorage.getItem("kesco_active_tab") || "dashboard";
+  });
+  const [language, setLanguage] = useState(() => {
+    if (typeof window === "undefined") return "en";
+    return window.localStorage.getItem("kesco_language") || "en";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("kesco_active_tab", activeTab);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("kesco_language", language);
+    }
+  }, [language]);
 
   return (
     <AuthProvider>
