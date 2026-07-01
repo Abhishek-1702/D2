@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
 import { addProjectLink, removeProjectLink, isFirebaseConfigured , setProjectPpt, loadProjectData } from "../firebase";
-import { uploadFileToStorage } from "../supabase";
+import { deleteFile, uploadFileToStorage } from "../supabase";
+import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
+import { useAuth } from "../contexts/AuthContext";
 import Toast from "./Toast";
 
 const STATUS_STYLES = {
@@ -21,7 +23,7 @@ const STATUS_STYLES = {
 
 export default function Projects() {
   const [projects, setProjects] = useState(
-    PROJECTS.map(p => ({ ...p, links: p.links || [] }))
+    PROJECTS.map(p => ({ ...p, links: p.links || [], documents: p.documents || [] }))
   );
   const [toast, setToast] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -30,6 +32,8 @@ export default function Projects() {
   const [pptModal, setPptModal] = useState(false);
   const listRef = useRef(null);
   const fileInputRef = useRef(null);
+  const { user } = useAuth();
+  const canManageDocuments = isAdminUser(user);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -67,9 +71,9 @@ export default function Projects() {
             PROJECTS.map(async (p) => {
               try {
                 const data = await loadProjectData(p.id);
-                return { ...p, links: data.links || [], ppt: data.ppt || p.ppt || null, pptName: data.pptName || p.pptName || null };
+                return { ...p, links: data.links || [], ppt: data.ppt || p.ppt || null, pptName: data.pptName || p.pptName || null, documents: data.documents || getSectionDocuments("project", p.id) || p.documents || [] };
               } catch (err) {
-                return { ...p, links: p.links || [], ppt: p.ppt || null, pptName: p.pptName || null };
+                return { ...p, links: p.links || [], ppt: p.ppt || null, pptName: p.pptName || null, documents: getSectionDocuments("project", p.id) || p.documents || [] };
               }
             })
           );
@@ -82,10 +86,10 @@ export default function Projects() {
         try {
           const key = 'projects_links_v1';
           const store = JSON.parse(localStorage.getItem(key) || '{}');
-          const updated = PROJECTS.map((p) => ({ ...p, links: store[p.id] || p.links || [], ppt: p.ppt || null, pptName: p.pptName || null }));
+          const updated = PROJECTS.map((p) => ({ ...p, links: store[p.id] || p.links || [], ppt: p.ppt || null, pptName: p.pptName || null, documents: getSectionDocuments("project", p.id) || p.documents || [] }));
           if (mounted) setProjects(updated);
         } catch (e) {
-          if (mounted) setProjects(PROJECTS.map(p => ({ ...p, links: p.links || [] })));
+          if (mounted) setProjects(PROJECTS.map(p => ({ ...p, links: p.links || [], documents: p.documents || [] })));
         }
       }
     };
@@ -103,34 +107,44 @@ export default function Projects() {
         const res = await uploadFileToStorage(file, 'projects');
         const url = res.url;
         const name = file.name;
+        const docEntry = buildUploadedDocument(file, url, res.path);
+        appendSectionDocument('project', selected.id, docEntry);
         await setProjectPpt(selected.id, url, name);
+        const updatedDocuments = [docEntry, ...(selected.documents || [])];
         const updated = projects.map((p) =>
-          p.id === selected.id ? { ...p, ppt: url, pptName: name } : p
+          p.id === selected.id ? { ...p, ppt: url, pptName: name, documents: updatedDocuments } : p
         );
         setProjects(updated);
-        setSelected((prev) => ({ ...prev, ppt: url, pptName: name }));
+        setSelected((prev) => ({ ...prev, ppt: url, pptName: name, documents: updatedDocuments }));
         if (setToast) { setToast({ type: 'success', message: 'Presentation uploaded' }); setTimeout(() => setToast(null), 3000); }
       } catch (err) {
         // fallback to local URL
         // eslint-disable-next-line no-console
         console.error('uploadFileToStorage failed, using local URL', err);
         const url = URL.createObjectURL(file);
+        const docEntry = buildUploadedDocument(file, url);
+        appendSectionDocument('project', selected.id, docEntry);
+        const updatedDocuments = [docEntry, ...(selected.documents || [])];
         const updated = projects.map((p) =>
-          p.id === selected.id ? { ...p, ppt: url, pptName: file.name } : p
+          p.id === selected.id ? { ...p, ppt: url, pptName: file.name, documents: updatedDocuments } : p
         );
         setProjects(updated);
-        setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name }));
+        setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
         if (setToast) {
           setToast({ type: 'error', message: 'Upload failed — saved locally only' });
           setTimeout(() => setToast(null), 4000);
         }
       }
     } else {
+      const url = URL.createObjectURL(file);
+      const docEntry = buildUploadedDocument(file, url);
+      appendSectionDocument('project', selected.id, docEntry);
+      const updatedDocuments = [docEntry, ...(selected.documents || [])];
       const updated = projects.map((p) =>
-        p.id === selected.id ? { ...p, ppt: URL.createObjectURL(file), pptName: file.name } : p
+        p.id === selected.id ? { ...p, ppt: url, pptName: file.name, documents: updatedDocuments } : p
       );
       setProjects(updated);
-      setSelected((prev) => ({ ...prev, ppt: URL.createObjectURL(file), pptName: file.name }));
+      setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
       setPptModal(false);
     }
   };
@@ -190,6 +204,22 @@ export default function Projects() {
     }
   };
 
+  const handleDeleteProjectDocument = async (documentId, documentPath) => {
+    if (!selected) return;
+    const nextDocuments = (selected.documents || []).filter((item) => item.id !== documentId);
+    removeSectionDocument('project', selected.id, documentId);
+    setProjects((prev) => prev.map((p) => p.id === selected.id ? { ...p, documents: nextDocuments } : p));
+    setSelected((prev) => prev ? { ...prev, documents: nextDocuments } : prev);
+
+    if (documentPath) {
+      try {
+        await deleteFile(documentPath);
+      } catch (error) {
+        console.error('delete failed', error);
+      }
+    }
+  };
+
   if (selected) {
     return (
       <ProjectDetail
@@ -204,6 +234,8 @@ export default function Projects() {
         setPptModal={setPptModal}
         onSaveLink={handleSaveLink}
         onDeleteLink={handleDeleteLink}
+        onDeleteDocument={handleDeleteProjectDocument}
+        canManageDocuments={canManageDocuments}
         toast={toast}
         setToast={setToast}
       />
@@ -308,7 +340,7 @@ function ProjectRow({ project, index, focused, onClick }) {
   );
 }
 
-function ProjectDetail({ project, onBack, activeTab, setActiveTab, onUploadPpt, fileInputRef, handlePptUpload, pptModal, setPptModal, onSaveLink, onDeleteLink, toast, setToast }) {
+function ProjectDetail({ project, onBack, activeTab, setActiveTab, onUploadPpt, fileInputRef, handlePptUpload, pptModal, setPptModal, onSaveLink, onDeleteLink, onDeleteDocument, canManageDocuments, toast, setToast }) {
   const tabs = ["overview", "daily updates", "files"];
 
   // toast and its setter are passed through props from parent
@@ -377,6 +409,8 @@ function ProjectDetail({ project, onBack, activeTab, setActiveTab, onUploadPpt, 
             onUploadPpt={onUploadPpt}
             onSaveLink={onSaveLink}
             onDeleteLink={onDeleteLink}
+            onDeleteDocument={onDeleteDocument}
+            canManageDocuments={canManageDocuments}
             toast={toast}
             setToast={setToast}
           />
@@ -668,7 +702,7 @@ function UpdatesTab({ project }) {
   );
 }
 
-function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, toast, setToast }) {
+function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, onDeleteDocument, canManageDocuments, toast, setToast }) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
   const [linkError, setLinkError] = useState("");
@@ -743,6 +777,42 @@ function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, toast, setTo
               Upload PPT
             </span>
           </div>
+        )}
+      </div>
+
+      {/* ── Project Documents ── */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          Project Documents
+        </p>
+        {project.documents && project.documents.length > 0 ? (
+          <div className="space-y-2 mb-4">
+            {project.documents.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 group">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                  <FileText size={15} className="text-blue-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{doc.name}</p>
+                  <p className="text-xs text-gray-400">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : "Uploaded recently"}</p>
+                </div>
+                <a href={doc.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 hover:underline shrink-0 px-2">
+                  Open ↗
+                </a>
+                {canManageDocuments && (
+                  <button
+                    onClick={() => onDeleteDocument(doc.id, doc.path)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-gray-300 hover:text-red-400"
+                    title="Delete document"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 mb-4">No documents uploaded for this project yet.</div>
         )}
       </div>
 

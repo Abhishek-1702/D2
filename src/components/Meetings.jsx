@@ -3,8 +3,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X } from "lucide-react";
 import { OFFICERS } from "../data/officers";
 import { isFirebaseConfigured , saveMeetingToFirestore, loadMeetingsFromFirestore } from "../firebase";
-import { uploadFileToStorage } from "../supabase";
+import { deleteFile, uploadFileToStorage } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
 
 export default function Meetings() {
   const [meetings, setMeetings] = useState([]);
@@ -27,13 +28,20 @@ export default function Meetings() {
 
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
+  const canManageDocuments = isAdminUser(user);
 
   useEffect(() => {
     const loadMeetings = async () => {
       if (!isFirebaseConfigured) return;
       try {
         const loaded = await loadMeetingsFromFirestore();
-        setMeetings(loaded);
+        const withPersistedDocs = loaded.map((meeting) => {
+          const storedDocs = getSectionDocuments('meeting', meeting.id);
+          const files = [...(meeting.files || []), ...storedDocs];
+          const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
+          return { ...meeting, files: uniqueFiles };
+        });
+        setMeetings(withPersistedDocs);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("loading meetings failed", err);
@@ -57,7 +65,8 @@ export default function Meetings() {
         for (const f of inputFiles) {
           try {
             const res = await uploadFileToStorage(f);
-            uploaded.push({ id: `${Date.now()}-${f.name}`, name: res.name, size: res.size, type: res.type, url: res.url });
+            const docEntry = buildUploadedDocument(f, res.url, res.path);
+            uploaded.push(docEntry);
           } catch (err) {
             // continue with other files but log
             // eslint-disable-next-line no-console
@@ -80,18 +89,23 @@ export default function Meetings() {
 
         try {
           const id = await saveMeetingToFirestore(meetingDoc);
-          setMeetings((m) => [{ id, ...meetingDoc }, ...m]);
+          const persistedDocs = uploaded.map((doc) => ({ ...doc }));
+          persistedDocs.forEach((doc) => appendSectionDocument('meeting', id, doc));
+          setMeetings((m) => [{ id, ...meetingDoc, files: persistedDocs }, ...m]);
         } catch (err) {
           // fallback: keep local
           // eslint-disable-next-line no-console
           console.error("saving meeting failed", err);
-          const localFiles = handleFiles(inputFiles);
-          const newMeeting = { id: Date.now(), title: title.trim(), date: date || new Date().toISOString().slice(0, 10), designation, officer, files: localFiles };
+          const localDocs = uploaded.map((doc) => ({ ...doc, uploadedAt: new Date().toISOString() }));
+          const newMeeting = { id: Date.now(), title: title.trim(), date: date || new Date().toISOString().slice(0, 10), designation, officer, files: localDocs };
+          localDocs.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
           setMeetings((m) => [newMeeting, ...m]);
         }
       } else {
         const localFiles = handleFiles(inputFiles);
-        const newMeeting = { id: Date.now(), title: title.trim(), date: date || new Date().toISOString().slice(0, 10), designation, officer, files: localFiles };
+        const localDocs = localFiles.map((file) => ({ ...file, uploadedAt: new Date().toISOString() }));
+        const newMeeting = { id: Date.now(), title: title.trim(), date: date || new Date().toISOString().slice(0, 10), designation, officer, files: localDocs };
+        localDocs.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
         setMeetings((m) => [newMeeting, ...m]);
       }
 
@@ -104,12 +118,21 @@ export default function Meetings() {
     }
   };
 
-  const handleRemoveFile = (meetingId, fileId) => {
+  const handleRemoveFile = async (meetingId, fileId) => {
+    const item = meetings.find((meeting) => meeting.id === meetingId)?.files?.find((file) => file.id === fileId);
     setMeetings((prev) =>
       prev.map((m) =>
         m.id === meetingId ? { ...m, files: m.files.filter((f) => f.id !== fileId) } : m
       )
     );
+    removeSectionDocument('meeting', meetingId, fileId);
+    if (item?.path) {
+      try {
+        await deleteFile(item.path);
+      } catch (error) {
+        console.error('delete failed', error);
+      }
+    }
   };
 
   const handleDesignationChange = (val) => {
@@ -234,14 +257,15 @@ export default function Meetings() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800 truncate">{f.name}</p>
                             <p className="text-xs text-gray-400">{Math.round(f.size / 1024)} KB</p>
+                            <p className="text-[11px] text-gray-400">{formatTimestamp(f.uploadedAt)}</p>
                           </div>
                           <a href={f.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600">Open ↗</a>
-                          {( !isFirebaseConfigured || user ) ? (
-                            <button onClick={() => handleRemoveFile(m.id, f.id)} className="text-gray-300 hover:text-red-400 ml-2">
+                          {canManageDocuments ? (
+                            <button onClick={() => handleRemoveFile(m.id, f.id)} className="text-gray-300 hover:text-red-400 ml-2" title="Delete document">
                               <X size={14} />
                             </button>
                           ) : (
-                            <div className="ml-2 text-xs text-gray-400">Sign-in required</div>
+                            <div className="ml-2 text-xs text-gray-400">Admin only</div>
                           )}
                         </div>
                       ))}

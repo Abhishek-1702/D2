@@ -46,7 +46,8 @@ export async function uploadFileToStorage(
     name: file.name,
     size: file.size,
     type: file.type,
-    url: data.publicUrl
+    url: data.publicUrl,
+    path: filePath
   };
 }
 
