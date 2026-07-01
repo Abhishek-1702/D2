@@ -56,6 +56,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     second: '2-digit',
   });
 
+  const isDashboard = activeTab === 'dashboard';
   const toggleLanguage = () => setLanguage(isHindi ? 'en' : 'hi');
   const skipToContent = () => document.getElementById('main-content')?.scrollIntoView({ behavior: 'smooth' });
   const openLink = (href) => window.open(href, '_blank', 'noreferrer');
@@ -247,73 +248,77 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
         )}
       </header>
 
-      {/* 3. Red Hero Banner */}
-      <div className="bg-[#de1b38] w-full min-h-[200px] sm:min-h-[220px] flex items-center justify-center relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row w-full max-w-6xl mx-auto px-4 gap-3 lg:gap-4 items-center">
-          <div className="flex-1 text-white pr-0 lg:pr-4 text-center lg:text-left">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-2 leading-tight">
-              बिजली बिल <br className="hidden sm:block" />
-              जमा करने के लिए किसी<br className="hidden sm:block" />
-              को रुपए क्यों दें?
-            </h1>
-            <div className="bg-white text-black inline-flex items-center px-3 sm:px-4 py-2 mt-3 rounded-full font-bold text-xs sm:text-sm">
-              KESCO की वेबसाइट है ना <Search size={14} className="ml-2 text-gray-400" />
+      {isDashboard && (
+        <>
+          {/* 3. Red Hero Banner */}
+          <div className="bg-[#de1b38] w-full min-h-[200px] sm:min-h-[220px] flex items-center justify-center relative overflow-hidden">
+            <div className="flex flex-col lg:flex-row w-full max-w-6xl mx-auto px-4 gap-3 lg:gap-4 items-center">
+              <div className="flex-1 text-white pr-0 lg:pr-4 text-center lg:text-left">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-2 leading-tight">
+                  बिजली बिल <br className="hidden sm:block" />
+                  जमा करने के लिए किसी<br className="hidden sm:block" />
+                  को रुपए क्यों दें?
+                </h1>
+                <div className="bg-white text-black inline-flex items-center px-3 sm:px-4 py-2 mt-3 rounded-full font-bold text-xs sm:text-sm">
+                  KESCO की वेबसाइट है ना <Search size={14} className="ml-2 text-gray-400" />
+                </div>
+              </div>
+
+              <div className="border-2 shrink-0 items-end justify-center pt-4 opacity-90 hover:opacity-100 transition-opacity hidden sm:flex">
+                <img
+                  src="/pm_portait.png"
+                  alt="Portrait of prime minister"
+                  className="h-40 sm:h-56 object-contain drop-shadow-md"
+                />
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2 lg:gap-3 items-center lg:items-end justify-center pl-0 lg:pl-4 w-full">
+                <div className="border-2 border-white rounded-[30px] px-4 lg:px-6 py-2 lg:py-3 text-center text-white bg-white/10 backdrop-blur-sm w-full max-w-sm">
+                  <p className="font-bold text-xs sm:text-sm lg:text-lg leading-tight">बिजली बिल भुगतान करना है? तो लाइन में लगने या किसी बिचौलिये को रुपए देने की जरुरत नहीं।</p>
+                </div>
+                <div className="border-2 border-white rounded-[30px] px-4 lg:px-6 py-2 lg:py-3 text-center text-white bg-white/10 backdrop-blur-sm w-full max-w-sm">
+                  <p className="font-bold text-xs sm:text-sm lg:text-lg leading-tight">KESCO की आधिकारिक वेबसाइट KESCO.ORG पर जाएं और घर बैठे ऑनलाइन बिल जमा करें सुरक्षित और आसान!</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="border-2 flex shrink-0 items-end justify-center pt-4 opacity-90 hover:opacity-100 transition-opacity hidden sm:flex">
-            <img
-              src="/pm_portait.png"
-              alt="Portrait of prime minister"
-              className="h-40 sm:h-56 object-contain drop-shadow-md"
-            />
-          </div>
-
-          <div className="flex-1 flex flex-col gap-2 lg:gap-3 items-center lg:items-end justify-center pl-0 lg:pl-4 w-full">
-            <div className="border-2 border-white rounded-[30px] px-4 lg:px-6 py-2 lg:py-3 text-center text-white bg-white/10 backdrop-blur-sm w-full max-w-sm">
-              <p className="font-bold text-xs sm:text-sm lg:text-lg leading-tight">बिजली बिल भुगतान करना है? तो लाइन में लगने या किसी बिचौलिये को रुपए देने की जरुरत नहीं।</p>
-            </div>
-            <div className="border-2 border-white rounded-[30px] px-4 lg:px-6 py-2 lg:py-3 text-center text-white bg-white/10 backdrop-blur-sm w-full max-w-sm">
-              <p className="font-bold text-xs sm:text-sm lg:text-lg leading-tight">KESCO की आधिकारिक वेबसाइट KESCO.ORG पर जाएं और घर बैठे ऑनलाइन बिल जमा करें सुरक्षित और आसान!</p>
+          {/* 4. Yellow Ticker */}
+          <div className="bg-[#ffeb3b] border-y border-gray-300 py-1.5 overflow-hidden flex whitespace-nowrap">
+            <div className="animate-[marquee_20s_linear_infinite] text-sm font-semibold text-gray-800">
+              To avail the benefits of KESCO PM Surya Ghar Free Electricity Scheme, download the app now!   •   Welcome to KESCO Summer Internship 2026 Portal! Stay updated on project progress and daily tasks.   •   Never share your OTP or password with anyone. KESCO never asks for it.
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* 4. Yellow Ticker */}
-      <div className="bg-[#ffeb3b] border-y border-gray-300 py-1.5 overflow-hidden flex whitespace-nowrap">
-        <div className="animate-[marquee_20s_linear_infinite] text-sm font-semibold text-gray-800">
-          To avail the benefits of KESCO PM Surya Ghar Free Electricity Scheme, download the app now!   •   Welcome to KESCO Summer Internship 2026 Portal! Stay updated on project progress and daily tasks.   •   Never share your OTP or password with anyone. KESCO never asks for it.
-        </div>
-      </div>
-
-      {/* 5. Orange Action Bars */}
-      <div className="bg-gradient-to-b from-[#e3ebf3] to-white py-3 sm:py-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 border-b border-gray-200 px-3 sm:px-6">
-        <a
-          href="https://play.google.com/store/apps/details?id=com.test.kescosmartmeter&hl=en_IN&pli=1"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
-        >
-          Download KESCO App
-        </a>
-        <a
-          href="https://consumer.uppcl.org/wss/pay_bill_home"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
-        >
-          Smart Meter Info
-        </a>
-        <a
-          href="https://consumer.uppcl.org/wss/bill-payment-services"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
-        >
-          Pay Bill Online
-        </a>
-      </div>
+          {/* 5. Orange Action Bars */}
+          <div className="bg-gradient-to-b from-[#e3ebf3] to-white py-3 sm:py-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 border-b border-gray-200 px-3 sm:px-6">
+            <a
+              href="https://play.google.com/store/apps/details?id=com.test.kescosmartmeter&hl=en_IN&pli=1"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
+            >
+              Download KESCO App
+            </a>
+            <a
+              href="https://consumer.uppcl.org/wss/pay_bill_home"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
+            >
+              Smart Meter Info
+            </a>
+            <a
+              href="https://consumer.uppcl.org/wss/bill-payment-services"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center bg-[#ff6f3b] hover:bg-[#e65a25] text-white font-bold px-3 sm:px-6 py-2 rounded shadow-md text-xs sm:text-sm transition-colors text-center"
+            >
+              Pay Bill Online
+            </a>
+          </div>
+        </>
+      )}
 
       {modalOpen && createPortal(
         <div onClick={closeModal} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
