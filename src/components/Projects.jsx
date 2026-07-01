@@ -341,7 +341,7 @@ function ProjectRow({ project, index, focused, onClick }) {
 }
 
 function ProjectDetail({ project, onBack, activeTab, setActiveTab, onUploadPpt, fileInputRef, handlePptUpload, pptModal, setPptModal, onSaveLink, onDeleteLink, onDeleteDocument, canManageDocuments, toast, setToast }) {
-  const tabs = ["overview", "daily updates", "files"];
+  const tabs = ["overview", "upload", "saved docs and links"];
 
   // toast and its setter are passed through props from parent
   // keep for rendering in this scope via closure
@@ -402,11 +402,10 @@ function ProjectDetail({ project, onBack, activeTab, setActiveTab, onUploadPpt, 
 
       <div className="px-8 py-6">
         {activeTab === "overview" && <OverviewTab project={project} />}
-        {activeTab === "daily updates" && <UpdatesTab project={project} />}
-        {activeTab === "files" && (
-          <FilesTab
+        {activeTab === "upload" && <UploadTab project={project} onUploadPpt={onUploadPpt} />}
+        {activeTab === "saved docs and links" && (
+          <SavedDocsLinksTab
             project={project}
-            onUploadPpt={onUploadPpt}
             onSaveLink={onSaveLink}
             onDeleteLink={onDeleteLink}
             onDeleteDocument={onDeleteDocument}
@@ -644,65 +643,39 @@ function ProjectCharts({ project }) {
   return null;
 }
 
-function UpdatesTab({ project }) {
+function UploadTab({ project, onUploadPpt }) {
   return (
-    <div className="max-w-3xl">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">
-        Daily Updates
-      </h3>
-
-      <div className="space-y-4">
-        {(project?.updates || []).map((u, i) => (
-          <div
-            key={i}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm p-4"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800">
-                  {u.title}
-                </h4>
-
-                <p className="text-xs text-gray-400 mt-1">
-                  {u.date} • {u.time}
-                </p>
-          
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-600 mt-3">
-              {u.desc}
-            </p>
-
-            <div className="flex flex-wrap gap-2 mt-3">
-              {(Array.isArray(u.member)
-                ? u.member
-                : [u.member]).map((member, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-full"
-                >
-                  <span className="w-5 h-5 rounded-full bg-yellow-100 flex items-center justify-center text-[9px] font-bold text-yellow-700">
-                    {String(member)
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </span>
-
-                  <span className="text-xs text-gray-500">
-                    {member}
-                  </span>
-                </div>
-              ))}
-            </div>
+    <div className="max-w-xl space-y-4">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Upload</p>
+        <div
+          onClick={onUploadPpt}
+          className="border-2 border-dashed border-yellow-200 rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-yellow-50 transition-colors group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-yellow-100 group-hover:bg-yellow-200 flex items-center justify-center transition-colors">
+            <Upload size={20} className="text-yellow-600" />
           </div>
-        ))}
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-700">Upload a Presentation</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Click to upload .pptx, .ppt, or .pdf files for {project.name}
+            </p>
+          </div>
+          <span className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full font-medium">
+            Upload PPT
+          </span>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-yellow-50/40 p-4 text-sm text-gray-600">
+        <p className="font-semibold text-gray-700 mb-1">Upload area</p>
+        <p>Use this section to add a new document or presentation for this project. Files uploaded here will appear in the saved documents section.</p>
       </div>
     </div>
   );
 }
 
-function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, onDeleteDocument, canManageDocuments, toast, setToast }) {
+function SavedDocsLinksTab({ project, onSaveLink, onDeleteLink, onDeleteDocument, canManageDocuments, setToast }) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
   const [linkError, setLinkError] = useState("");
@@ -724,71 +697,12 @@ function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, onDeleteDocu
 
   return (
     <div className="max-w-xl space-y-6">
-      <h3 className="text-sm font-semibold text-gray-700">Files & Links</h3>
-
-      {/* ── Uploaded Presentation (unchanged) ── */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Uploaded Presentation
-        </p>
-        {project.ppt ? (
-          <div>
-            <div className="flex items-center gap-3 bg-blue-50 rounded-xl border border-blue-100 px-5 py-4 mb-4">
-              <FileText size={20} className="text-blue-500" />
-              <div>
-                <p className="text-sm font-semibold text-gray-800">{project.pptName}</p>
-                <p className="text-xs text-gray-400">Presentation uploaded</p>
-              </div>
-              <a
-                href={project.ppt}
-                target="_blank"
-                rel="noreferrer"
-                className="ml-auto text-xs font-semibold text-blue-600 hover:underline"
-              >
-                Open ↗
-              </a>
-            </div>
-            <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50 aspect-video flex items-center justify-center">
-              {project.pptName?.endsWith(".pdf") ? (
-                <iframe src={project.ppt} className="w-full h-full" title="PPT Preview" />
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <FileText size={40} className="text-gray-300" />
-                  <p className="text-sm">Click "Open" to view the presentation</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div
-            onClick={onUploadPpt}
-            className="border-2 border-dashed border-yellow-200 rounded-2xl p-12 flex flex-col items-center gap-3 cursor-pointer hover:bg-yellow-50 transition-colors group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-yellow-100 group-hover:bg-yellow-200 flex items-center justify-center transition-colors">
-              <Upload size={24} className="text-yellow-600" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-gray-700">Upload a Presentation</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Click to upload .pptx, .ppt, or .pdf files for {project.name}
-              </p>
-            </div>
-            <span className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full font-medium">
-              Upload PPT
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* ── Project Documents ── */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Project Documents
-        </p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Saved documents</p>
         {project.documents && project.documents.length > 0 ? (
-          <div className="space-y-2 mb-4">
+          <div className="space-y-2">
             {project.documents.map((doc) => (
-              <div key={doc.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 group">
+              <div key={doc.id} className="flex items-center gap-3 bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 group">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                   <FileText size={15} className="text-blue-500" />
                 </div>
@@ -812,23 +726,19 @@ function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, onDeleteDocu
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-400 mb-4">No documents uploaded for this project yet.</div>
+          <div className="text-sm text-gray-400">No documents uploaded for this project yet.</div>
         )}
       </div>
 
-      {/* ── External Links (new) ── */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          External Links
-        </p>
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Saved links</p>
 
-        {/* Saved links list */}
         {project.links && project.links.length > 0 && (
           <div className="space-y-2 mb-3">
             {project.links.map((link, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 group"
+                className="flex items-center gap-3 bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 group"
               >
                 <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                   <LinkIcon size={15} className="text-gray-500" />
@@ -851,13 +761,11 @@ function FilesTab({ project, onUploadPpt, onSaveLink, onDeleteLink, onDeleteDocu
                 >
                   <X size={14} />
                 </button>
-                <button className="ml-2 hidden" />
               </div>
             ))}
           </div>
         )}
 
-        {/* Add new link */}
         <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-2.5">
           <p className="text-xs font-semibold text-gray-600">Add a Link</p>
           <input
