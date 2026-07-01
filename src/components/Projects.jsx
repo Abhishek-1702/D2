@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
 import { addProjectLink, removeProjectLink, isFirebaseConfigured , setProjectPpt, loadProjectData } from "../firebase";
-import { deleteFile, uploadFileToStorage } from "../supabase";
+import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
 import { useAuth } from "../contexts/AuthContext";
 import Toast from "./Toast";
@@ -61,6 +61,14 @@ export default function Projects() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  useEffect(() => {
+    if (!selected) return;
+    const syncedProject = projects.find((project) => project.id === selected.id);
+    if (syncedProject && JSON.stringify(syncedProject) !== JSON.stringify(selected)) {
+      setSelected(syncedProject);
+    }
+  }, [projects, selected]);
+
   // Load links and PPTs from Firestore when available; fallback to localStorage links
   useEffect(() => {
     let mounted = true;
@@ -99,43 +107,36 @@ export default function Projects() {
 
   const handlePptUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    // If Firebase available, upload and persist
-    if (isFirebaseConfigured) {
-      try {
-        setPptModal(false);
+    if (!file || !selected) return;
+
+    try {
+      setPptModal(false);
+      let url = URL.createObjectURL(file);
+      let path = null;
+
+      if (isSupabaseConfigured) {
         const res = await uploadFileToStorage(file, 'projects');
-        const url = res.url;
-        const name = file.name;
-        const docEntry = buildUploadedDocument(file, url, res.path);
-        appendSectionDocument('project', selected.id, docEntry);
-        await setProjectPpt(selected.id, url, name);
-        const updatedDocuments = [docEntry, ...(selected.documents || [])];
-        const updated = projects.map((p) =>
-          p.id === selected.id ? { ...p, ppt: url, pptName: name, documents: updatedDocuments } : p
-        );
-        setProjects(updated);
-        setSelected((prev) => ({ ...prev, ppt: url, pptName: name, documents: updatedDocuments }));
-        if (setToast) { setToast({ type: 'success', message: 'Presentation uploaded' }); setTimeout(() => setToast(null), 3000); }
-      } catch (err) {
-        // fallback to local URL
-        // eslint-disable-next-line no-console
-        console.error('uploadFileToStorage failed, using local URL', err);
-        const url = URL.createObjectURL(file);
-        const docEntry = buildUploadedDocument(file, url);
-        appendSectionDocument('project', selected.id, docEntry);
-        const updatedDocuments = [docEntry, ...(selected.documents || [])];
-        const updated = projects.map((p) =>
-          p.id === selected.id ? { ...p, ppt: url, pptName: file.name, documents: updatedDocuments } : p
-        );
-        setProjects(updated);
-        setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
-        if (setToast) {
-          setToast({ type: 'error', message: 'Upload failed — saved locally only' });
-          setTimeout(() => setToast(null), 4000);
-        }
+        url = res.url;
+        path = res.path;
       }
-    } else {
+
+      const docEntry = buildUploadedDocument(file, url, path);
+      appendSectionDocument('project', selected.id, docEntry);
+
+      if (isFirebaseConfigured) {
+        await setProjectPpt(selected.id, url, file.name);
+      }
+
+      const updatedDocuments = [docEntry, ...(selected.documents || [])];
+      const updated = projects.map((p) =>
+        p.id === selected.id ? { ...p, ppt: url, pptName: file.name, documents: updatedDocuments } : p
+      );
+      setProjects(updated);
+      setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
+      if (setToast) { setToast({ type: 'success', message: 'Presentation uploaded' }); setTimeout(() => setToast(null), 3000); }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('uploadFileToStorage failed, using local URL', err);
       const url = URL.createObjectURL(file);
       const docEntry = buildUploadedDocument(file, url);
       appendSectionDocument('project', selected.id, docEntry);
@@ -145,7 +146,10 @@ export default function Projects() {
       );
       setProjects(updated);
       setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
-      setPptModal(false);
+      if (setToast) {
+        setToast({ type: 'error', message: 'Upload failed — saved locally only' });
+        setTimeout(() => setToast(null), 4000);
+      }
     }
   };
 

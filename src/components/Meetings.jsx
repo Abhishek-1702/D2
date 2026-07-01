@@ -3,9 +3,31 @@ import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X } from "lucide-react";
 import { OFFICERS } from "../data/officers";
 import { isFirebaseConfigured , saveMeetingToFirestore, loadMeetingsFromFirestore } from "../firebase";
-import { deleteFile, uploadFileToStorage } from "../supabase";
+import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
+
+const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
+
+function readStoredMeetings() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(MEETINGS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (error) {
+    console.error("Failed to read meetings store", error);
+    return [];
+  }
+}
+
+function writeStoredMeetings(meetingsList) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MEETINGS_STORAGE_KEY, JSON.stringify(meetingsList));
+  } catch (error) {
+    console.error("Failed to write meetings store", error);
+  }
+}
 
 export default function Meetings() {
   const [meetings, setMeetings] = useState([]);
@@ -32,20 +54,26 @@ export default function Meetings() {
 
   useEffect(() => {
     const loadMeetings = async () => {
-      if (!isFirebaseConfigured) return;
-      try {
-        const loaded = await loadMeetingsFromFirestore();
-        const withPersistedDocs = loaded.map((meeting) => {
-          const storedDocs = getSectionDocuments('meeting', meeting.id);
-          const files = [...(meeting.files || []), ...storedDocs];
-          const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
-          return { ...meeting, files: uniqueFiles };
-        });
-        setMeetings(withPersistedDocs);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error("loading meetings failed", err);
+      if (isFirebaseConfigured) {
+        try {
+          const loaded = await loadMeetingsFromFirestore();
+          const withPersistedDocs = loaded.map((meeting) => {
+            const storedDocs = getSectionDocuments('meeting', meeting.id);
+            const files = [...(meeting.files || []), ...storedDocs];
+            const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
+            return { ...meeting, files: uniqueFiles };
+          });
+          setMeetings(withPersistedDocs);
+          writeStoredMeetings(withPersistedDocs);
+          return;
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("loading meetings failed", err);
+        }
       }
+
+      const storedMeetings = readStoredMeetings();
+      setMeetings(storedMeetings);
     };
 
     loadMeetings();
@@ -54,60 +82,66 @@ export default function Meetings() {
   const handleAddMeeting = async (e) => {
     e.preventDefault();
     if (!title.trim()) return;
-    if (isFirebaseConfigured && !user) return;
     setSaving(true);
     try {
-      const inputFiles = fileInputRef.current?.files || [];
+      const inputFiles = Array.from(fileInputRef.current?.files || []);
+      const uploaded = [];
 
-      // If Firebase configured, upload files there and store URLs in firestore
-      if (isFirebaseConfigured) {
-        const uploaded = [];
-        for (const f of inputFiles) {
-          try {
+      for (const f of inputFiles) {
+        try {
+          let url = URL.createObjectURL(f);
+          let path = null;
+          if (isSupabaseConfigured) {
             const res = await uploadFileToStorage(f);
-            const docEntry = buildUploadedDocument(f, res.url, res.path);
-            uploaded.push(docEntry);
-          } catch (err) {
-            // continue with other files but log
-            // eslint-disable-next-line no-console
-            console.error("file upload failed", f.name, err);
+            url = res.url;
+            path = res.path;
           }
+          const docEntry = buildUploadedDocument(f, url, path);
+          uploaded.push(docEntry);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("file upload failed", f.name, err);
+          const localUrl = URL.createObjectURL(f);
+          uploaded.push(buildUploadedDocument(f, localUrl));
         }
+      }
 
-        const meetingDoc = {
-          title: title.trim(),
-          date: date || new Date().toISOString().slice(0, 10),
-          designation,
-          officer,
-          files: uploaded,
-          createdBy: null,
-        };
+      const meetingDoc = {
+        title: title.trim(),
+        date: date || new Date().toISOString().slice(0, 10),
+        designation,
+        officer,
+        files: uploaded,
+        createdBy: null,
+      };
 
-        if (user) {
-          meetingDoc.createdBy = { uid: user.uid, email: user.email };
-        }
+      if (user) {
+        meetingDoc.createdBy = { uid: user.uid, email: user.email };
+      }
 
+      let newMeeting = {
+        id: Date.now(),
+        ...meetingDoc,
+        files: uploaded.map((doc) => ({ ...doc, uploadedAt: doc.uploadedAt || new Date().toISOString() })),
+      };
+
+      if (isFirebaseConfigured) {
         try {
           const id = await saveMeetingToFirestore(meetingDoc);
+          newMeeting = { ...newMeeting, id };
           const persistedDocs = uploaded.map((doc) => ({ ...doc }));
           persistedDocs.forEach((doc) => appendSectionDocument('meeting', id, doc));
-          setMeetings((m) => [{ id, ...meetingDoc, files: persistedDocs }, ...m]);
+          newMeeting.files = persistedDocs;
         } catch (err) {
-          // fallback: keep local
           // eslint-disable-next-line no-console
           console.error("saving meeting failed", err);
-          const localDocs = uploaded.map((doc) => ({ ...doc, uploadedAt: new Date().toISOString() }));
-          const newMeeting = { id: Date.now(), title: title.trim(), date: date || new Date().toISOString().slice(0, 10), designation, officer, files: localDocs };
-          localDocs.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
-          setMeetings((m) => [newMeeting, ...m]);
         }
-      } else {
-        const localFiles = handleFiles(inputFiles);
-        const localDocs = localFiles.map((file) => ({ ...file, uploadedAt: new Date().toISOString() }));
-        const newMeeting = { id: Date.now(), title: title.trim(), date: date || new Date().toISOString().slice(0, 10), designation, officer, files: localDocs };
-        localDocs.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
-        setMeetings((m) => [newMeeting, ...m]);
       }
+
+      newMeeting.files.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
+      const nextMeetings = [newMeeting, ...meetings];
+      setMeetings(nextMeetings);
+      writeStoredMeetings(nextMeetings);
 
       setTitle("");
       setDate("");
@@ -126,6 +160,11 @@ export default function Meetings() {
       )
     );
     removeSectionDocument('meeting', meetingId, fileId);
+    const nextMeetings = meetings
+      .map((meeting) => meeting.id === meetingId ? { ...meeting, files: meeting.files.filter((file) => file.id !== fileId) } : meeting)
+      .filter((meeting) => meeting.id !== undefined);
+    setMeetings(nextMeetings);
+    writeStoredMeetings(nextMeetings);
     if (item?.path) {
       try {
         await deleteFile(item.path);
