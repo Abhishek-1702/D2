@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
-import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
+import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, getStoragePathFromUrl, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
 import { useAuth } from "../contexts/AuthContext";
 import Toast from "./Toast";
 
@@ -184,22 +184,18 @@ export default function Projects() {
   };
 
   const handleDeleteLink = (index) => {
+    if (!selected) return;
+    const nextLinks = (selected.links || []).filter((_, i) => i !== index);
     const updated = projects.map((p) =>
-      p.id === selected.id
-        ? { ...p, links: (p.links || []).filter((_, i) => i !== index) }
-        : p
+      p.id === selected.id ? { ...p, links: nextLinks } : p
     );
     setProjects(updated);
-    setSelected((prev) => ({
-      ...prev,
-      links: (prev.links || []).filter((_, i) => i !== index),
-    }));
-    const link = selected.links?.[index];
-    if (!link) return;
+    setSelected((prev) => (prev ? { ...prev, links: nextLinks } : prev));
+
     try {
       const key = 'projects_links_v1';
       const store = JSON.parse(localStorage.getItem(key) || '{}');
-      store[selected.id] = (store[selected.id] || []).filter((l) => l !== link);
+      store[selected.id] = nextLinks;
       localStorage.setItem(key, JSON.stringify(store));
     } catch (e) {
       // ignore
@@ -213,9 +209,10 @@ export default function Projects() {
     setProjects((prev) => prev.map((p) => p.id === selected.id ? { ...p, documents: nextDocuments } : p));
     setSelected((prev) => prev ? { ...prev, documents: nextDocuments } : prev);
 
-    if (documentPath) {
+    const resolvedPath = documentPath || getStoragePathFromUrl((selected.documents || []).find((item) => item.id === documentId)?.url);
+    if (resolvedPath) {
       try {
-        await deleteFile(documentPath);
+        await deleteFile(resolvedPath);
       } catch (error) {
         console.error('delete failed', error);
       }

@@ -4,7 +4,7 @@ import { Upload, FileText, X, Eye } from "lucide-react";
 import { OFFICERS } from "../data/officers";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
+import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, removeSectionDocument, saveSectionDocuments } from "../utils/documentPersistence";
 
 const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
 
@@ -114,23 +114,37 @@ export default function Meetings() {
 
   const handleRemoveFile = async (meetingId, fileId) => {
     const item = meetings.find((meeting) => meeting.id === meetingId)?.files?.find((file) => file.id === fileId);
-    setMeetings((prev) =>
-      prev.map((m) =>
-        m.id === meetingId ? { ...m, files: m.files.filter((f) => f.id !== fileId) } : m
-      )
-    );
-    removeSectionDocument('meeting', meetingId, fileId);
     const nextMeetings = meetings
       .map((meeting) => meeting.id === meetingId ? { ...meeting, files: meeting.files.filter((file) => file.id !== fileId) } : meeting)
       .filter((meeting) => meeting.id !== undefined);
     setMeetings(nextMeetings);
     writeStoredMeetings(nextMeetings);
-    if (item?.path) {
+    removeSectionDocument('meeting', meetingId, fileId);
+
+    const resolvedPath = item?.path || getStoragePathFromUrl(item?.url);
+    if (resolvedPath) {
       try {
-        await deleteFile(item.path);
+        await deleteFile(resolvedPath);
       } catch (error) {
         console.error('delete failed', error);
       }
+    }
+  };
+
+  const handleDeleteMeeting = async (meetingId) => {
+    const meeting = meetings.find((item) => item.id === meetingId);
+    if (!meeting) return;
+
+    const filesToDelete = (meeting.files || []).map((file) => file.path || getStoragePathFromUrl(file.url)).filter(Boolean);
+    setMeetings((prev) => {
+      const next = prev.filter((item) => item.id !== meetingId);
+      writeStoredMeetings(next);
+      return next;
+    });
+    saveSectionDocuments('meeting', meetingId, []);
+
+    if (filesToDelete.length > 0) {
+      await Promise.allSettled(filesToDelete.map((path) => deleteFile(path)));
     }
   };
 
@@ -256,6 +270,20 @@ export default function Meetings() {
                     <h3 className="text-sm font-semibold text-gray-800">{m.title}</h3>
                     <p className="text-xs text-gray-400">{m.date}</p>
                     <span className="ml-auto text-xs text-gray-500">{m.designation} • {m.officer}</span>
+                    {canManageDocuments && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete meeting "${m.title}"?`)) {
+                            handleDeleteMeeting(m.id);
+                          }
+                        }}
+                        className="ml-2 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
+                        title="Delete meeting"
+                      >
+                        <X size={14} /> Delete
+                      </button>
+                    )}
                   </div>
 
                   {m.files && m.files.length > 0 && (

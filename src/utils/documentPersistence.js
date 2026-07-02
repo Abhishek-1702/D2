@@ -60,6 +60,21 @@ export function buildUploadedDocument(file, url, path = null, uploadedAt = new D
   };
 }
 
+export function getStoragePathFromUrl(url) {
+  if (!url) return null;
+  try {
+    const decoded = decodeURIComponent(url);
+    const marker = "/storage/v1/object/public/Documents/";
+    const startIndex = decoded.indexOf(marker);
+    if (startIndex < 0) return null;
+    const afterMarker = decoded.slice(startIndex + marker.length);
+    return afterMarker.split("?")[0];
+  } catch (error) {
+    console.error("Failed to parse storage path", error);
+    return null;
+  }
+}
+
 export function formatTimestamp(value) {
   if (!value) return "No timestamp";
   const date = new Date(value);
