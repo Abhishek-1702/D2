@@ -313,4 +313,6 @@ export const RECENT_ACTIVITY = [
   { task: "Categorization and analysis", project: "Revenue - Loss Analysis", member: "Sanskriti Jaiswal", time: "Jun 10, 12:00 PM", type: "update", avatar: "SJ" },
   { task: "Analysis and cleaning the Data", project: "Complaint Analysis", member: "Hridhima Srivastav", time: "Jun 10, 11:00 AM", type: "update", avatar: "HS" },
   { task: "Dashboard Development started", project: "KESCO Dashboard", member: "Abhishek Yadav" , time: "Jun 10, 12:30 PM", type: "update", avatar: "AY"},
+  { task: "Made Dashboard updated by adding and modifying Intern names",project:"KESCO Dashboard",member:"Harshika Sharma", time: "july 02, 12:10 AM",type: "update", avatar: "HS"},
+  { task: "Dashboard has been deployed, login access has been provided to all team members,and project members will now update their own files",project:"KESCO Dashboard ",member :"Abhishek Yadav",time:"july 02, 12:40 AM",type:"update",avatar:"AY"},
   ];
