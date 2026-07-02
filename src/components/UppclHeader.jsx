@@ -101,14 +101,16 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               {isHindi ? 'English' : 'हिंदी'}
             </button>
             <span className="px-2 text-[10px] lg:text-xs">♿</span>
-            <button type="button" onClick={() => openLink('https://upptcl.org/upptcl')} className="px-2 text-[10px] lg:text-xs hover:underline">
-              VBTS
-            </button>
+            <div className="flex items-center gap-2 px-2">
+              <button type="button" onClick={() => openLink('https://upptcl.org/upptcl')} className="text-[10px] lg:text-xs hover:underline">
+                VBTS
+              </button>
+              <span className="rounded-full bg-white/15 px-2 lg:px-3 py-1 text-[10px] lg:text-[11px] font-semibold whitespace-nowrap">
+                {formattedTime}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-1 lg:flex-none min-w-0">
-            <div className="hidden sm:block rounded-full bg-white/15 px-2 lg:px-3 py-1 text-[10px] lg:text-[11px] font-semibold whitespace-nowrap">
-              {formattedTime}
-            </div>
             <div className="relative flex-1 lg:flex-none">
               <input
                 type="text"

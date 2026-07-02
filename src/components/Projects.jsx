@@ -6,10 +6,9 @@ import {
 } from "recharts";
 import {
   ChevronLeft, Upload, FileText, Users,
-  Target, CheckSquare, BookOpen, AlertCircle, X, Link as LinkIcon
+  Target, CheckSquare, BookOpen, AlertCircle, X, Link as LinkIcon, Eye
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
-import { addProjectLink, removeProjectLink, isFirebaseConfigured , setProjectPpt, loadProjectData } from "../firebase";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
 import { useAuth } from "../contexts/AuthContext";
@@ -101,36 +100,25 @@ export default function Projects() {
   // Load links and PPTs from Firestore when available; fallback to localStorage links
   useEffect(() => {
     let mounted = true;
-    const loadLinks = async () => {
-      if (isFirebaseConfigured) {
-        try {
-          const updated = await Promise.all(
-            PROJECTS.map(async (p) => {
-              try {
-                const data = await loadProjectData(p.id);
-                return { ...p, links: data.links || [], ppt: data.ppt || p.ppt || null, pptName: data.pptName || p.pptName || null, documents: data.documents || getSectionDocuments("project", p.id) || p.documents || [] };
-              } catch (err) {
-                return { ...p, links: p.links || [], ppt: p.ppt || null, pptName: p.pptName || null, documents: getSectionDocuments("project", p.id) || p.documents || [] };
-              }
-            })
-          );
-          if (mounted) setProjects(updated);
-        } catch (err) {
-          // ignore
-        }
-      } else {
-        // Load links from localStorage
-        try {
-          const key = 'projects_links_v1';
-          const store = JSON.parse(localStorage.getItem(key) || '{}');
-          const updated = PROJECTS.map((p) => ({ ...p, links: store[p.id] || p.links || [], ppt: p.ppt || null, pptName: p.pptName || null, documents: getSectionDocuments("project", p.id) || p.documents || [] }));
-          if (mounted) setProjects(updated);
-        } catch (e) {
-          if (mounted) setProjects(PROJECTS.map(p => ({ ...p, links: p.links || [], documents: p.documents || [] })));
-        }
+
+    const loadProjectState = () => {
+      try {
+        const key = 'projects_links_v1';
+        const store = JSON.parse(localStorage.getItem(key) || '{}');
+        const updated = PROJECTS.map((p) => ({
+          ...p,
+          links: store[p.id] || p.links || [],
+          ppt: p.ppt || null,
+          pptName: p.pptName || null,
+          documents: getSectionDocuments("project", p.id) || p.documents || [],
+        }));
+        if (mounted) setProjects(updated);
+      } catch (e) {
+        if (mounted) setProjects(PROJECTS.map((p) => ({ ...p, links: p.links || [], documents: p.documents || [] })));
       }
     };
-    loadLinks();
+
+    loadProjectState();
     return () => { mounted = false; };
   }, []);
 
@@ -151,10 +139,6 @@ export default function Projects() {
 
       const docEntry = buildUploadedDocument(file, url, path);
       appendSectionDocument('project', selected.id, docEntry);
-
-      if (isFirebaseConfigured) {
-        await setProjectPpt(selected.id, url, file.name);
-      }
 
       const updatedDocuments = [docEntry, ...(selected.documents || [])];
       const updated = projects.map((p) =>
@@ -189,21 +173,13 @@ export default function Projects() {
     setProjects(updated);
     setSelected((prev) => ({ ...prev, links: [...(prev.links || []), link] }));
 
-    if (isFirebaseConfigured) {
-      addProjectLink(selected.id, link).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error('addProjectLink failed', err);
-      });
-    } else {
-      // fallback: persist to localStorage
-      try {
-        const key = 'projects_links_v1';
-        const store = JSON.parse(localStorage.getItem(key) || '{}');
-        store[selected.id] = (store[selected.id] || []).concat(link);
-        localStorage.setItem(key, JSON.stringify(store));
-      } catch (e) {
-        // ignore
-      }
+    try {
+      const key = 'projects_links_v1';
+      const store = JSON.parse(localStorage.getItem(key) || '{}');
+      store[selected.id] = (store[selected.id] || []).concat(link);
+      localStorage.setItem(key, JSON.stringify(store));
+    } catch (e) {
+      // ignore
     }
   };
 
@@ -220,20 +196,13 @@ export default function Projects() {
     }));
     const link = selected.links?.[index];
     if (!link) return;
-    if (isFirebaseConfigured) {
-      removeProjectLink(selected.id, link).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error('removeProjectLink failed', err);
-      });
-    } else {
-      try {
-        const key = 'projects_links_v1';
-        const store = JSON.parse(localStorage.getItem(key) || '{}');
-        store[selected.id] = (store[selected.id] || []).filter((l) => l !== link);
-        localStorage.setItem(key, JSON.stringify(store));
-      } catch (e) {
-        // ignore
-      }
+    try {
+      const key = 'projects_links_v1';
+      const store = JSON.parse(localStorage.getItem(key) || '{}');
+      store[selected.id] = (store[selected.id] || []).filter((l) => l !== link);
+      localStorage.setItem(key, JSON.stringify(store));
+    } catch (e) {
+      // ignore
     }
   };
 
@@ -712,6 +681,7 @@ function SavedDocsLinksTab({ project, onSaveLink, onDeleteLink, onDeleteDocument
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
   const [linkError, setLinkError] = useState("");
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   const handleSaveLink = () => {
     if (!linkUrl.trim()) { setLinkError("Please enter a URL."); return; }
@@ -726,6 +696,25 @@ function SavedDocsLinksTab({ project, onSaveLink, onDeleteLink, onDeleteDocument
       setToast({ type: 'success', message: 'Link saved' });
       setTimeout(() => setToast(null), 3000);
     }
+  };
+
+  const confirmDelete = (label, callback) => {
+    if (window.confirm(`Delete ${label}?`)) {
+      callback();
+    }
+  };
+
+  const getPreviewSource = (doc) => {
+    if (!doc?.url) return null;
+    const name = (doc.name || "").toLowerCase();
+    const ext = name.split(".").pop() || "";
+    const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+    const officeExts = ["doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "xlsm", "xltx"];
+
+    if (imageExts.includes(ext)) return { src: doc.url, type: "image" };
+    if (ext === "pdf") return { src: doc.url, type: "pdf" };
+    if (officeExts.includes(ext)) return { src: `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.url)}`, type: "office" };
+    return { src: doc.url, type: "fallback" };
   };
 
   return (
@@ -743,12 +732,19 @@ function SavedDocsLinksTab({ project, onSaveLink, onDeleteLink, onDeleteDocument
                   <p className="text-sm font-semibold text-gray-800 truncate">{doc.name}</p>
                   <p className="text-xs text-gray-400">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : "Uploaded recently"}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(doc)}
+                  className="text-xs font-semibold text-gray-700 hover:text-yellow-600 shrink-0 px-2 inline-flex items-center gap-1"
+                >
+                  <Eye size={13} /> Preview
+                </button>
                 <a href={doc.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 hover:underline shrink-0 px-2">
                   Open ↗
                 </a>
                 {canManageDocuments && (
                   <button
-                    onClick={() => onDeleteDocument(doc.id, doc.path)}
+                    onClick={() => confirmDelete(`"${doc.name}"`, () => onDeleteDocument(doc.id, doc.path))}
                     className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-gray-300 hover:text-red-400"
                     title="Delete document"
                   >
@@ -788,12 +784,14 @@ function SavedDocsLinksTab({ project, onSaveLink, onDeleteLink, onDeleteDocument
                 >
                   Open ↗
                 </a>
-                <button
-                  onClick={() => onDeleteLink(i)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-gray-300 hover:text-red-400"
-                >
-                  <X size={14} />
-                </button>
+                {canManageDocuments && (
+                  <button
+                    onClick={() => confirmDelete(`"${link.name || link.url}"`, () => onDeleteLink(i))}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 text-gray-300 hover:text-red-400"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -828,6 +826,38 @@ function SavedDocsLinksTab({ project, onSaveLink, onDeleteLink, onDeleteDocument
           <p className="text-[10px] text-gray-400">Press Enter or click Save Link. Name is optional.</p>
         </div>
       </div>
+
+      {previewDoc && (() => {
+        const preview = getPreviewSource(previewDoc);
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Preview</p>
+                  <p className="text-xs text-gray-500">{previewDoc.name}</p>
+                </div>
+                <button type="button" onClick={() => setPreviewDoc(null)} className="text-gray-400 hover:text-gray-700">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="bg-gray-50 p-3 min-h-[420px] max-h-[70vh] overflow-auto">
+                {preview?.type === "image" ? (
+                  <img src={preview.src} alt={previewDoc.name} className="mx-auto max-h-[65vh] object-contain" />
+                ) : preview?.type === "pdf" || preview?.type === "office" ? (
+                  <iframe title={previewDoc.name} src={preview.src} className="w-full h-[65vh] rounded-xl border border-gray-200" />
+                ) : (
+                  <div className="flex h-[65vh] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white text-center text-sm text-gray-500">
+                    <FileText size={28} className="mb-2 text-gray-300" />
+                    <p className="font-medium text-gray-700">Preview is not available for this file type.</p>
+                    <p className="mt-1">You can still open it directly using the link above.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

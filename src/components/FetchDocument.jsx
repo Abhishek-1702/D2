@@ -111,8 +111,16 @@ export default function FetchDocument({ language }) {
 
         {docResult && (
           <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-3xl border border-gray-200 overflow-hidden bg-gray-50">
-              <iframe src={docResult.url} title={docResult.title} className="h-72 w-full" />
+            <div className="space-y-3">
+              <div className="rounded-3xl border border-gray-200 bg-white p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">Preview</p>
+                  <span className="text-xs text-gray-500">Live document preview</span>
+                </div>
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                  <iframe src={docResult.url} title={docResult.title} className="h-72 w-full" />
+                </div>
+              </div>
             </div>
             <div className="flex flex-col justify-between gap-4 rounded-3xl border border-gray-200 bg-white p-4">
               <div>

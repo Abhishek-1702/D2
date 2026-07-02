@@ -1,8 +1,7 @@
 // src/components/Meetings.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, Eye } from "lucide-react";
 import { OFFICERS } from "../data/officers";
-import { isFirebaseConfigured , saveMeetingToFirestore, loadMeetingsFromFirestore } from "../firebase";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
@@ -38,34 +37,19 @@ export default function Meetings() {
   const fileInputRef = useRef(null);
 
   const [saving, setSaving] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
   const { user } = useAuth();
   const canManageDocuments = isAdminUser(user);
 
   useEffect(() => {
-    const loadMeetings = async () => {
-      if (isFirebaseConfigured) {
-        try {
-          const loaded = await loadMeetingsFromFirestore();
-          const withPersistedDocs = loaded.map((meeting) => {
-            const storedDocs = getSectionDocuments('meeting', meeting.id);
-            const files = [...(meeting.files || []), ...storedDocs];
-            const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
-            return { ...meeting, files: uniqueFiles };
-          });
-          setMeetings(withPersistedDocs);
-          writeStoredMeetings(withPersistedDocs);
-          return;
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error("loading meetings failed", err);
-        }
-      }
-
-      const storedMeetings = readStoredMeetings();
-      setMeetings(storedMeetings);
-    };
-
-    loadMeetings();
+    const storedMeetings = readStoredMeetings();
+    const hydratedMeetings = storedMeetings.map((meeting) => {
+      const storedDocs = getSectionDocuments('meeting', meeting.id);
+      const files = [...(meeting.files || []), ...storedDocs];
+      const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
+      return { ...meeting, files: uniqueFiles };
+    });
+    setMeetings(hydratedMeetings);
   }, []);
 
   const handleAddMeeting = async (e) => {
@@ -114,19 +98,6 @@ export default function Meetings() {
         files: uploaded.map((doc) => ({ ...doc, uploadedAt: doc.uploadedAt || new Date().toISOString() })),
       };
 
-      if (isFirebaseConfigured) {
-        try {
-          const id = await saveMeetingToFirestore(meetingDoc);
-          newMeeting = { ...newMeeting, id };
-          const persistedDocs = uploaded.map((doc) => ({ ...doc }));
-          persistedDocs.forEach((doc) => appendSectionDocument('meeting', id, doc));
-          newMeeting.files = persistedDocs;
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error("saving meeting failed", err);
-        }
-      }
-
       newMeeting.files.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
       const nextMeetings = [newMeeting, ...meetings];
       setMeetings(nextMeetings);
@@ -169,16 +140,29 @@ export default function Meetings() {
     setOfficer("");
   };
 
+  const getPreviewSource = (file) => {
+    if (!file?.url) return null;
+    const name = (file.name || "").toLowerCase();
+    const ext = name.split(".").pop() || "";
+    const imageExts = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+    const officeExts = ["doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv", "txt", "xlsm", "xltx"];
+
+    if (imageExts.includes(ext)) return { src: file.url, type: "image" };
+    if (ext === "pdf") return { src: file.url, type: "pdf" };
+    if (officeExts.includes(ext)) return { src: `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}`, type: "office" };
+    return { src: file.url, type: "fallback" };
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-gradient-to-br from-white via-[#FFFBEA]/30 to-white">
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-8 py-4">
         <h1 className="text-2xl font-display font-bold text-gray-900">Meetings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Upload meeting documents and record attendees.</p>
         <div className="mt-3">
-          {isFirebaseConfigured ? (
-            <span className="inline-block text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Firebase: Connected</span>
+          {isSupabaseConfigured ? (
+            <span className="inline-block text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Supabase: Connected</span>
           ) : (
-            <span className="inline-block text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">Firebase: Local (offline)</span>
+            <span className="inline-block text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">Supabase: Local (offline)</span>
           )}
           {saving && <span className="ml-3 text-xs text-yellow-600">Saving…</span>}
         </div>
@@ -244,10 +228,9 @@ export default function Meetings() {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={isFirebaseConfigured && !user}
-              className={`bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-sm px-4 py-2 rounded-xl transition-colors ${isFirebaseConfigured && !user ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-sm px-4 py-2 rounded-xl transition-colors"
             >
-              {isFirebaseConfigured && !user ? 'Sign in to save' : 'Save Meeting'}
+              Save Meeting
             </button>
             <button
               type="button"
@@ -287,9 +270,24 @@ export default function Meetings() {
                             <p className="text-xs text-gray-400">{Math.round(f.size / 1024)} KB</p>
                             <p className="text-[11px] text-gray-400">{formatTimestamp(f.uploadedAt)}</p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewFile(f)}
+                            className="inline-flex items-center gap-1 text-xs text-gray-700 hover:text-yellow-600"
+                          >
+                            <Eye size={13} /> Preview
+                          </button>
                           <a href={f.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600">Open ↗</a>
                           {canManageDocuments ? (
-                            <button onClick={() => handleRemoveFile(m.id, f.id)} className="text-gray-300 hover:text-red-400 ml-2" title="Delete document">
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete "${f.name}"?`)) {
+                                  handleRemoveFile(m.id, f.id);
+                                }
+                              }}
+                              className="text-gray-300 hover:text-red-400 ml-2"
+                              title="Delete document"
+                            >
                               <X size={14} />
                             </button>
                           ) : (
@@ -305,6 +303,38 @@ export default function Meetings() {
           ))}
         </div>
       </div>
+
+      {previewFile && (() => {
+        const preview = getPreviewSource(previewFile);
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Preview</p>
+                  <p className="text-xs text-gray-500">{previewFile.name}</p>
+                </div>
+                <button type="button" onClick={() => setPreviewFile(null)} className="text-gray-400 hover:text-gray-700">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="bg-gray-50 p-3 min-h-[420px] max-h-[70vh] overflow-auto">
+                {preview?.type === "image" ? (
+                  <img src={preview.src} alt={previewFile.name} className="mx-auto max-h-[65vh] object-contain" />
+                ) : preview?.type === "pdf" || preview?.type === "office" ? (
+                  <iframe title={previewFile.name} src={preview.src} className="w-full h-[65vh] rounded-xl border border-gray-200" />
+                ) : (
+                  <div className="flex h-[65vh] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white text-center text-sm text-gray-500">
+                    <FileText size={28} className="mb-2 text-gray-300" />
+                    <p className="font-medium text-gray-700">Preview is not available for this file type.</p>
+                    <p className="mt-1">You can still open it directly using the link above.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
