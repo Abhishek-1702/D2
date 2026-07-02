@@ -296,8 +296,8 @@ export const TEAM_MEMBERS = [
 ];
 
 export const RECENT_ACTIVITY = [
-  { task: "Dashboard updated by adding and modifying Intern names",project:"KESCO Dashboard",member:"Harshika Sharma", time: "july 02, 12:10 AM",type: "update", avatar: "HS"},
-  { task: "Dashboard has been deployed, login access has been provided to all team members, Backend integrated successfully.",project:"KESCO Dashboard ",member :"Abhishek Yadav",time:"july 02, 12:40 AM",type:"update",avatar:"AY"},
+  { task: "Dashboard updated by adding and modifying Intern names",project:"KESCO Dashboard",member:"Harshika Sharma", time: "july 02, 12:10 PM",type: "update", avatar: "HS"},
+  { task: "Dashboard has been deployed, login access has been provided to all team members, Backend integrated successfully.",project:"KESCO Dashboard ",member :"Abhishek Yadav",time:"july 02, 12:40 PM",type:"update",avatar:"AY"},
   { task: "Enhanced dashboard UI and responsiveness", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 29, 2:30 Pm", type:"update", avatar:"NG"},
   { task: "integrated new data received from complaint analysis and theft analysis teams", project:"Dashboard Analysis", member:"Harshika Sharma", time:"jun 24, 12:30 Pm", type:"update", avatar:"HS"},
   { task: "updated members details and project progress percentage in the dashboard", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 23, 11:40 Am", type:"update", avatar:"NG"},
