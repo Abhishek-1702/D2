@@ -296,6 +296,8 @@ export const TEAM_MEMBERS = [
 ];
 
 export const RECENT_ACTIVITY = [
+  { task: "Dashboard updated by adding and modifying Intern names",project:"KESCO Dashboard",member:"Harshika Sharma", time: "july 02, 12:10 AM",type: "update", avatar: "HS"},
+  { task: "Dashboard has been deployed, login access has been provided to all team members, Backend integrated successfully.",project:"KESCO Dashboard ",member :"Abhishek Yadav",time:"july 02, 12:40 AM",type:"update",avatar:"AY"},
   { task: "Enhanced dashboard UI and responsiveness", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 29, 2:30 Pm", type:"update", avatar:"NG"},
   { task: "integrated new data received from complaint analysis and theft analysis teams", project:"Dashboard Analysis", member:"Harshika Sharma", time:"jun 24, 12:30 Pm", type:"update", avatar:"HS"},
   { task: "updated members details and project progress percentage in the dashboard", project:"Dashboard Analysis", member:"Nisha Gond", time:"jun 23, 11:40 Am", type:"update", avatar:"NG"},
@@ -313,6 +315,4 @@ export const RECENT_ACTIVITY = [
   { task: "Categorization and analysis", project: "Revenue - Loss Analysis", member: "Sanskriti Jaiswal", time: "Jun 10, 12:00 PM", type: "update", avatar: "SJ" },
   { task: "Analysis and cleaning the Data", project: "Complaint Analysis", member: "Hridhima Srivastav", time: "Jun 10, 11:00 AM", type: "update", avatar: "HS" },
   { task: "Dashboard Development started", project: "KESCO Dashboard", member: "Abhishek Yadav" , time: "Jun 10, 12:30 PM", type: "update", avatar: "AY"},
-  { task: "Made Dashboard updated by adding and modifying Intern names",project:"KESCO Dashboard",member:"Harshika Sharma", time: "july 02, 12:10 AM",type: "update", avatar: "HS"},
-  { task: "Dashboard has been deployed, login access has been provided to all team members,and project members will now update their own files",project:"KESCO Dashboard ",member :"Abhishek Yadav",time:"july 02, 12:40 AM",type:"update",avatar:"AY"},
   ];
