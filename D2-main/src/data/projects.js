@@ -288,9 +288,12 @@ export const TEAM_MEMBERS = [
   { name: "Abhishek Yadav", role: "Intern", avatar: "AY" },
   { name: "Nisha Gond", role: "Intern", avatar: "NG" },
   { name: "Harshika Sharma", role: "Intern", avatar: "HS" },
-  { name: "chinmay kumar gupta", role:"Intern",avatar:"CKG"},
-  { name: "mayank Snakhwar", role:"Intern",avatar:"MS"},
+  { name: "Chinmay Kumar Gupta", role:"Intern",avatar:"CKG"},
+  { name: "Mayank Sankhwar", role:"Intern",avatar:"MS"},
+  { name: "Aman Mishra", role:"Intern",avatar:"MS"},
+  { name: "Imaad Ansari", role:"Intern",avatar:"MS"},
   
+
 ];
 
 export const RECENT_ACTIVITY = [
