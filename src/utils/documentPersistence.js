@@ -71,15 +71,5 @@ export function formatTimestamp(value) {
 }
 
 export function isAdminUser(user) {
-  if (!user?.email) return false;
-  const configuredAdmins = (process.env.REACT_APP_ADMIN_EMAILS || "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (configuredAdmins.length === 0) {
-    return false;
-  }
-
-  return configuredAdmins.includes(user.email.toLowerCase());
+  return Boolean(user?.email);
 }
