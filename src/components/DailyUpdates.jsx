@@ -69,11 +69,11 @@ export default function DailyUpdates() {
   }, []);
 
   useEffect(() => {
-    if (!personName) {
-      const fallback = user?.displayName || user?.email?.split("@")[0] || "";
-      setPersonName(fallback);
+    // Only prefill from the user's displayName (do not use email local-part as default)
+    if (user?.displayName) {
+      setPersonName(user.displayName);
     }
-  }, [user, personName]);
+  }, [user]);
 
   useEffect(() => {
       const { date } = getTodayParts();
@@ -170,7 +170,7 @@ export default function DailyUpdates() {
       setUpdates(nextUpdates);
       writeStoredUpdates(nextUpdates);
 
-      setPersonName(user?.displayName || user?.email?.split("@")[0] || "");
+      setPersonName(user?.displayName || "");
       const { date: todayDate } = getTodayParts();
       setUpdateDate(todayDate);
       setNote("");
