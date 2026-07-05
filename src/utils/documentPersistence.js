@@ -1,3 +1,5 @@
+import { isSupabaseConfigured, supabase } from "../supabase";
+
 const STORAGE_KEY = "kesco_section_documents_v1";
 
 function readStore() {
@@ -72,6 +74,35 @@ export function getStoragePathFromUrl(url) {
   } catch (error) {
     console.error("Failed to parse storage path", error);
     return null;
+  }
+}
+
+export async function readSharedJsonFile(filePath) {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase.storage.from("Documents").download(filePath);
+    if (error || !data) return null;
+    const text = await data.text();
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Failed to read shared JSON", error);
+    return null;
+  }
+}
+
+export async function writeSharedJsonFile(filePath, value) {
+  if (!isSupabaseConfigured || !supabase) return false;
+  try {
+    const payload = JSON.stringify(value);
+    const blob = new Blob([payload], { type: "application/json" });
+    const { error } = await supabase.storage.from("Documents").upload(filePath, blob, {
+      upsert: true,
+      contentType: "application/json",
+    });
+    return !error;
+  } catch (error) {
+    console.error("Failed to write shared JSON", error);
+    return false;
   }
 }
 

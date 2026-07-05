@@ -179,6 +179,13 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
             </button>
             <span className="text-gray-300">|</span>
             <button
+              onClick={() => { setActiveTab('dailyupdates'); setMobileMenuOpen(false); }}
+              className={`hover:text-orange-500 transition-colors ${activeTab === 'dailyupdates' ? 'text-orange-500 border-b-2 border-orange-500' : ''}`}
+            >
+              {isHindi ? 'दैनिक अपडेट' : 'Daily Updates'}
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
               onClick={() => { setActiveTab('fetch'); setMobileMenuOpen(false); }}
               className={`hover:text-orange-500 transition-colors ${activeTab === 'fetch' ? 'text-orange-500 border-b-2 border-orange-500' : ''}`}
             >
@@ -239,6 +246,12 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               className={`block w-full text-left px-4 py-2 text-sm font-semibold rounded transition-colors ${activeTab === 'meetings' ? 'bg-orange-100 text-orange-600' : 'text-[#1f498c] hover:bg-gray-100'}`}
             >
               {isHindi ? 'मीटिंग्स' : 'Meetings'}
+            </button>
+            <button
+              onClick={() => { setActiveTab('dailyupdates'); setMobileMenuOpen(false); }}
+              className={`block w-full text-left px-4 py-2 text-sm font-semibold rounded transition-colors ${activeTab === 'dailyupdates' ? 'bg-orange-100 text-orange-600' : 'text-[#1f498c] hover:bg-gray-100'}`}
+            >
+              {isHindi ? 'दैनिक अपडेट' : 'Daily Updates'}
             </button>
             <button
               onClick={() => { setActiveTab('fetch'); setMobileMenuOpen(false); }}

@@ -4,7 +4,7 @@ import { Upload, FileText, X, Eye } from "lucide-react";
 import { OFFICERS } from "../data/officers";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, removeSectionDocument, saveSectionDocuments } from "../utils/documentPersistence";
+import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
 
 const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
 
@@ -41,15 +41,33 @@ export default function Meetings() {
   const { user } = useAuth();
   const canManageDocuments = isAdminUser(user);
 
+  const persistMeetingsState = async (nextMeetings) => {
+    try {
+      writeStoredMeetings(nextMeetings);
+      await writeSharedJsonFile('app-data/meetings-state.json', nextMeetings);
+    } catch (error) {
+      console.error('Failed to sync meetings state', error);
+    }
+  };
+
   useEffect(() => {
-    const storedMeetings = readStoredMeetings();
-    const hydratedMeetings = storedMeetings.map((meeting) => {
-      const storedDocs = getSectionDocuments('meeting', meeting.id);
-      const files = [...(meeting.files || []), ...storedDocs];
-      const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
-      return { ...meeting, files: uniqueFiles };
-    });
-    setMeetings(hydratedMeetings);
+    const loadMeetingsState = async () => {
+      const storedMeetings = readStoredMeetings();
+      const remoteMeetings = await readSharedJsonFile('app-data/meetings-state.json');
+      const sourceMeetings = Array.isArray(remoteMeetings) && remoteMeetings.length > 0 ? remoteMeetings : storedMeetings;
+      const hydratedMeetings = sourceMeetings.map((meeting) => {
+        const storedDocs = getSectionDocuments('meeting', meeting.id);
+        const files = [...(meeting.files || []), ...storedDocs];
+        const uniqueFiles = Array.from(new Map(files.map((file) => [file.id, file])).values());
+        return { ...meeting, files: uniqueFiles };
+      });
+      setMeetings(hydratedMeetings);
+      if (Array.isArray(remoteMeetings) && remoteMeetings.length > 0) {
+        writeStoredMeetings(hydratedMeetings);
+      }
+    };
+
+    loadMeetingsState();
   }, []);
 
   const handleAddMeeting = async (e) => {
@@ -101,7 +119,7 @@ export default function Meetings() {
       newMeeting.files.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
       const nextMeetings = [newMeeting, ...meetings];
       setMeetings(nextMeetings);
-      writeStoredMeetings(nextMeetings);
+      await persistMeetingsState(nextMeetings);
 
       setTitle("");
       setDate("");
@@ -118,7 +136,7 @@ export default function Meetings() {
       .map((meeting) => meeting.id === meetingId ? { ...meeting, files: meeting.files.filter((file) => file.id !== fileId) } : meeting)
       .filter((meeting) => meeting.id !== undefined);
     setMeetings(nextMeetings);
-    writeStoredMeetings(nextMeetings);
+    await persistMeetingsState(nextMeetings);
     removeSectionDocument('meeting', meetingId, fileId);
 
     const resolvedPath = item?.path || getStoragePathFromUrl(item?.url);
@@ -138,7 +156,7 @@ export default function Meetings() {
     const filesToDelete = (meeting.files || []).map((file) => file.path || getStoragePathFromUrl(file.url)).filter(Boolean);
     setMeetings((prev) => {
       const next = prev.filter((item) => item.id !== meetingId);
-      writeStoredMeetings(next);
+      void persistMeetingsState(next);
       return next;
     });
     saveSectionDocuments('meeting', meetingId, []);

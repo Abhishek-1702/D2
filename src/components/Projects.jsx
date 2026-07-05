@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
-import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, getStoragePathFromUrl, isAdminUser, removeSectionDocument } from "../utils/documentPersistence";
+import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, writeSharedJsonFile } from "../utils/documentPersistence";
 import { useAuth } from "../contexts/AuthContext";
 import Toast from "./Toast";
 
@@ -97,22 +97,54 @@ export default function Projects() {
     }
   }, [projects, selected]);
 
-  // Load links and PPTs from Firestore when available; fallback to localStorage links
+  const persistProjectsState = async (nextProjects) => {
+    try {
+      const key = 'projects_links_v1';
+      const store = JSON.parse(localStorage.getItem(key) || '{}');
+      const nextStore = { ...store };
+      nextProjects.forEach((project) => {
+        nextStore[project.id] = project.links || [];
+      });
+      localStorage.setItem(key, JSON.stringify(nextStore));
+      await writeSharedJsonFile('app-data/projects-state.json', nextProjects);
+    } catch (error) {
+      console.error('Failed to sync projects state', error);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
-    const loadProjectState = () => {
+    const loadProjectState = async () => {
       try {
         const key = 'projects_links_v1';
         const store = JSON.parse(localStorage.getItem(key) || '{}');
-        const updated = PROJECTS.map((p) => ({
+        const remoteProjects = await readSharedJsonFile('app-data/projects-state.json');
+        const baseProjects = PROJECTS.map((p) => ({
           ...p,
           links: store[p.id] || p.links || [],
           ppt: p.ppt || null,
           pptName: p.pptName || null,
           documents: getSectionDocuments("project", p.id) || p.documents || [],
         }));
+        const remoteById = Array.isArray(remoteProjects)
+          ? Object.fromEntries(remoteProjects.map((project) => [project.id, project]))
+          : {};
+        const updated = PROJECTS.map((p) => {
+          const remoteProject = remoteById[p.id] || {};
+          return {
+            ...p,
+            ...remoteProject,
+            links: remoteProject.links || store[p.id] || p.links || [],
+            ppt: remoteProject.ppt || p.ppt || null,
+            pptName: remoteProject.pptName || p.pptName || null,
+            documents: remoteProject.documents || getSectionDocuments("project", p.id) || p.documents || [],
+          };
+        });
         if (mounted) setProjects(updated);
+        if (Array.isArray(remoteProjects)) {
+          await persistProjectsState(updated);
+        }
       } catch (e) {
         if (mounted) setProjects(PROJECTS.map((p) => ({ ...p, links: p.links || [], documents: p.documents || [] })));
       }
@@ -146,6 +178,7 @@ export default function Projects() {
       );
       setProjects(updated);
       setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
+      await persistProjectsState(updated);
       if (setToast) { setToast({ type: 'success', message: 'Presentation uploaded' }); setTimeout(() => setToast(null), 3000); }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -159,6 +192,7 @@ export default function Projects() {
       );
       setProjects(updated);
       setSelected((prev) => ({ ...prev, ppt: url, pptName: file.name, documents: updatedDocuments }));
+      await persistProjectsState(updated);
       if (setToast) {
         setToast({ type: 'error', message: 'Upload failed — saved locally only' });
         setTimeout(() => setToast(null), 4000);
@@ -172,6 +206,7 @@ export default function Projects() {
     );
     setProjects(updated);
     setSelected((prev) => ({ ...prev, links: [...(prev.links || []), link] }));
+    void persistProjectsState(updated);
 
     try {
       const key = 'projects_links_v1';
@@ -191,6 +226,7 @@ export default function Projects() {
     );
     setProjects(updated);
     setSelected((prev) => (prev ? { ...prev, links: nextLinks } : prev));
+    void persistProjectsState(updated);
 
     try {
       const key = 'projects_links_v1';
@@ -206,8 +242,10 @@ export default function Projects() {
     if (!selected) return;
     const nextDocuments = (selected.documents || []).filter((item) => item.id !== documentId);
     removeSectionDocument('project', selected.id, documentId);
-    setProjects((prev) => prev.map((p) => p.id === selected.id ? { ...p, documents: nextDocuments } : p));
+    const nextProjects = projects.map((p) => p.id === selected.id ? { ...p, documents: nextDocuments } : p);
+    setProjects(nextProjects);
     setSelected((prev) => prev ? { ...prev, documents: nextDocuments } : prev);
+    void persistProjectsState(nextProjects);
 
     const resolvedPath = documentPath || getStoragePathFromUrl((selected.documents || []).find((item) => item.id === documentId)?.url);
     if (resolvedPath) {
