@@ -121,13 +121,7 @@ export default function Projects() {
         const key = 'projects_links_v1';
         const store = JSON.parse(localStorage.getItem(key) || '{}');
         const remoteProjects = await readSharedJsonFile('app-data/projects-state.json');
-        const baseProjects = PROJECTS.map((p) => ({
-          ...p,
-          links: store[p.id] || p.links || [],
-          ppt: p.ppt || null,
-          pptName: p.pptName || null,
-          documents: getSectionDocuments("project", p.id) || p.documents || [],
-        }));
+        // build a projects array from local store and remote state
         const remoteById = Array.isArray(remoteProjects)
           ? Object.fromEntries(remoteProjects.map((project) => [project.id, project]))
           : {};
