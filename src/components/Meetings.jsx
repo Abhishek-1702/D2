@@ -1,7 +1,7 @@
 // src/components/Meetings.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Eye } from "lucide-react";
-import { OFFICERS } from "../data/officers";
+import { AUTHORITY_HIERARCHY, resolveMeetingDesignation } from "../data/officers";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
@@ -30,10 +30,13 @@ function writeStoredMeetings(meetingsList) {
 
 export default function Meetings() {
   const [meetings, setMeetings] = useState([]);
-  const [title, setTitle] = useState("");
+  const [meetingTitle, setMeetingTitle] = useState("");
   const [date, setDate] = useState("");
-  const [designation, setDesignation] = useState(OFFICERS[0]?.designation || "");
-  const [officer, setOfficer] = useState("");
+  const [note, setNote] = useState("");
+  const [selectedPath, setSelectedPath] = useState([]);
+  const [selectedPosition, setSelectedPosition] = useState("");
+  const [personName, setPersonName] = useState("");
+  const [meetingConductedBy, setMeetingConductedBy] = useState("");
   const fileInputRef = useRef(null);
 
   const [saving, setSaving] = useState(false);
@@ -72,9 +75,17 @@ export default function Meetings() {
 
   const handleAddMeeting = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!selectedPosition) return;
+    if (!meetingTitle.trim()) return;
     setSaving(true);
     try {
+      if (!user) {
+        // saving is only allowed for signed-in users
+        // eslint-disable-next-line no-alert
+        alert('Please sign in to save meetings and upload documents.');
+        return;
+      }
+
       const inputFiles = Array.from(fileInputRef.current?.files || []);
       const uploaded = [];
 
@@ -97,11 +108,17 @@ export default function Meetings() {
         }
       }
 
+      const selectedDesignation = resolveMeetingDesignation(selectedPosition);
+      const now = new Date();
       const meetingDoc = {
-        title: title.trim(),
-        date: date || new Date().toISOString().slice(0, 10),
-        designation,
-        officer,
+        title: meetingTitle.trim(),
+        date: date || now.toISOString().slice(0, 10),
+        time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        designation: selectedDesignation,
+        officer: personName.trim() || selectedDesignation,
+        conductedBy: meetingConductedBy.trim(),
+        note: note.trim(),
+        createdAt: now.toISOString(),
         files: uploaded,
         createdBy: null,
       };
@@ -121,9 +138,13 @@ export default function Meetings() {
       setMeetings(nextMeetings);
       await persistMeetingsState(nextMeetings);
 
-      setTitle("");
+      setMeetingTitle("");
       setDate("");
-      setOfficer("");
+      setNote("");
+      setPersonName("");
+      setMeetingConductedBy("");
+      setSelectedPath([]);
+      setSelectedPosition("");
       if (fileInputRef.current) fileInputRef.current.value = null;
     } finally {
       setSaving(false);
@@ -166,10 +187,35 @@ export default function Meetings() {
     }
   };
 
-  const handleDesignationChange = (val) => {
-    setDesignation(val);
-    // clear officer input when designation changes so user can type a name
-    setOfficer("");
+  const resetForm = () => {
+    setMeetingTitle("");
+    setDate("");
+    setNote("");
+    setPersonName("");
+    setSelectedPath([]);
+    setSelectedPosition("");
+    if (fileInputRef.current) fileInputRef.current.value = null;
+  };
+
+  const getNextOptions = (path) => {
+    // Traverse the tree using the path segments. Start from the root list.
+    if (path.length === 0) return AUTHORITY_HIERARCHY;
+    let nodes = AUTHORITY_HIERARCHY;
+    for (const segment of path) {
+      const found = nodes.find((n) => n.label === segment);
+      if (!found) return [];
+      nodes = found.children || [];
+    }
+    return nodes || [];
+  };
+
+  const handleSelectionChange = (value, level) => {
+    const nextPath = selectedPath.slice(0, level);
+    nextPath[level] = value;
+    const trimmed = nextPath.filter((entry) => entry !== undefined);
+    setSelectedPath(trimmed);
+    // only keep the last selected designation (not the full tree)
+    setSelectedPosition(value || trimmed[trimmed.length - 1] || "");
   };
 
   const getPreviewSource = (file) => {
@@ -189,7 +235,7 @@ export default function Meetings() {
     <div className="flex-1 overflow-y-auto bg-gradient-to-br from-white via-[#FFFBEA]/30 to-white">
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-8 py-4">
         <h1 className="text-2xl font-display font-bold text-gray-900">Meetings</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Upload meeting documents and record attendees.</p>
+        <p className="text-sm text-gray-500 mt-0.5">Record official meeting details for the selected authority position.</p>
         <div className="mt-3">
           {isSupabaseConfigured ? (
             <span className="inline-block text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Supabase: Connected</span>
@@ -201,77 +247,139 @@ export default function Meetings() {
       </div>
 
       <div className="px-8 py-6">
-        <form onSubmit={handleAddMeeting} className="space-y-4 max-w-3xl">
-          <div className="grid grid-cols-3 gap-3">
-            <input
-              className="col-span-2 text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none"
-              placeholder="Meeting title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-
-            <input
-              type="date"
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <select
-              value={designation}
-              onChange={(e) => handleDesignationChange(e.target.value)}
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white"
-            >
-              {OFFICERS.map((o) => (
-                <option key={o.designation} value={o.designation}>{o.designation}</option>
+        <form onSubmit={handleAddMeeting} className="space-y-4 max-w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="space-y-3">
+            <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Authority position</label>
+            <div className="flex gap-3 flex-nowrap overflow-x-auto">
+              {selectedPath.map((value, index) => (
+                <select
+                  key={`${value}-${index}`}
+                  value={value}
+                  onChange={(e) => handleSelectionChange(e.target.value, index)}
+                  className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
+                >
+                  <option value="">Select</option>
+                  {getNextOptions(selectedPath.slice(0, index)).map((option) => (
+                    <option key={option.label} value={option.label}>{option.label}</option>
+                  ))}
+                </select>
               ))}
-            </select>
-
-            <input
-              type="text"
-              value={officer}
-              onChange={(e) => setOfficer(e.target.value)}
-              placeholder="Officer name"
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white"
-            />
-
-            <div className="flex items-center gap-3">
-              <label
-                className="flex-1 cursor-pointer border-2 border-dashed border-yellow-200 rounded-2xl p-3 flex items-center gap-3"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Upload size={18} className="text-yellow-600" />
-                </div>
-                <div className="text-sm text-gray-600">Attach documents</div>
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.csv,application/*"
-                className="hidden"
-              />
+              {(() => {
+                const nextOptions = getNextOptions(selectedPath);
+                if (!nextOptions || nextOptions.length === 0) return null;
+                return (
+                  <select
+                    value=""
+                    onChange={(e) => handleSelectionChange(e.target.value, selectedPath.length)}
+                    className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
+                  >
+                    <option value="">Designation</option>
+                    {nextOptions.map((option) => (
+                      <option key={option.label} value={option.label}>{option.label}</option>
+                    ))}
+                  </select>
+                );
+              })()}
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-sm px-4 py-2 rounded-xl transition-colors"
-            >
-              Save Meeting
-            </button>
-            <button
-              type="button"
-              onClick={() => { setTitle(""); setDate(""); setOfficer(""); fileInputRef.current.value = null; }}
-              className="bg-white border border-gray-200 text-gray-700 text-sm px-4 py-2 rounded-xl"
-            >
-              Reset
-            </button>
-          </div>
+          {selectedPosition && (
+            <div className="space-y-4 border-t border-gray-100 pt-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Name</label>
+                  <input
+                    type="text"
+                    value={personName}
+                    onChange={(e) => setPersonName(e.target.value)}
+                    placeholder="Enter officer / official name"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Meeting title</label>
+                <input
+                  value={meetingTitle}
+                  onChange={(e) => setMeetingTitle(e.target.value)}
+                  placeholder="Enter meeting title"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Meeting conducted by</label>
+                <input
+                  type="text"
+                  value={meetingConductedBy}
+                  onChange={(e) => setMeetingConductedBy(e.target.value)}
+                  placeholder="Enter name of person who conducted the meeting"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Short note</label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={3}
+                  placeholder="Add a short note"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label
+                  className={`flex flex-1 ${user ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} items-center gap-3 rounded-2xl border border-dashed border-yellow-200 bg-yellow-50/50 px-4 py-3 text-sm text-gray-700`}
+                  onClick={() => {
+                    if (!user) {
+                      // eslint-disable-next-line no-alert
+                      alert('Sign in to attach documents');
+                      return;
+                    }
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <Upload size={16} className="text-yellow-600" />
+                  <span>{fileInputRef.current?.files?.length ? fileInputRef.current.files[0].name : "Attach document"}</span>
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.csv,application/*"
+                  className="hidden"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={!user}
+                    className={`bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-sm px-4 py-2 rounded-xl transition-colors ${!user ? 'opacity-50 cursor-not-allowed hover:bg-yellow-400' : ''}`}
+                  >
+                    {user ? 'Save Meeting' : 'Sign in to Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="bg-white border border-gray-200 text-gray-700 text-sm px-4 py-2 rounded-xl"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
 
         <div className="mt-8 space-y-4">
@@ -284,25 +392,36 @@ export default function Meetings() {
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center text-yellow-700 font-bold">M</div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-sm font-semibold text-gray-800">{m.title}</h3>
-                    <p className="text-xs text-gray-400">{m.date}</p>
-                    <span className="ml-auto text-xs text-gray-500">{m.designation} • {m.officer}</span>
-                    {canManageDocuments && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm(`Delete meeting "${m.title}"?`)) {
-                            handleDeleteMeeting(m.id);
-                          }
-                        }}
-                        className="ml-2 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
-                        title="Delete meeting"
-                      >
-                        <X size={14} /> Delete
-                      </button>
-                    )}
+
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800">{m.title}</h3>
+                      <div className="text-xs text-gray-400 mt-1">{m.date} {m.time ? `• ${m.time}` : null}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {canManageDocuments && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete meeting "${m.title}"?`)) {
+                              handleDeleteMeeting(m.id);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
+                          title="Delete meeting"
+                        >
+                          <X size={14} /> Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  <div className="mt-2 text-xs text-gray-500">{m.designation}</div>
+                  <div className="mt-1 text-sm text-gray-700">{m.officer}</div>
+                  {m.conductedBy ? (
+                    <div className="mt-1 text-sm text-gray-600">Meeting conducted by: <span className="font-medium text-gray-800">{m.conductedBy}</span></div>
+                  ) : null}
+                  {m.note ? <p className="mt-2 text-sm text-gray-600">{m.note}</p> : null}
 
                   {m.files && m.files.length > 0 && (
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">

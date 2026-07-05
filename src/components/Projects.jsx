@@ -66,9 +66,10 @@ export default function Projects() {
       if (!savedView) return;
       const parsed = JSON.parse(savedView);
       if (parsed.projectId) {
-        const restoredProject = projects.find((project) => project.id === parsed.projectId);
-        if (restoredProject) {
-          setSelected(restoredProject);
+        const restoredIndex = projects.findIndex((project) => project.id === parsed.projectId);
+        if (restoredIndex >= 0) {
+          // restore focus to that project but do not auto-open the project detail
+          setFocusedIndex(restoredIndex);
           if (parsed.subTab) setActiveTab(parsed.subTab);
         }
       }
