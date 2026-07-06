@@ -76,9 +76,26 @@ export default function DailyUpdates() {
   }, [user]);
 
   useEffect(() => {
-      const { date } = getTodayParts();
-      if (!updateDate) setUpdateDate(date);
+    const { date } = getTodayParts();
+    if (!updateDate) setUpdateDate(date);
   }, [updateDate]);
+
+  useEffect(() => {
+    if (!filterYear || !filterMonth) return;
+
+    const selectedMonth = filterMonth.padStart(2, "0");
+    const fallbackDate = `${filterYear}-${selectedMonth}-01`;
+
+    setUpdateDate((currentDate) => {
+      if (!currentDate) return fallbackDate;
+      const currentYear = currentDate.slice(0, 4);
+      const currentMonth = currentDate.slice(5, 7);
+      if (currentYear === filterYear && currentMonth === selectedMonth) {
+        return currentDate;
+      }
+      return fallbackDate;
+    });
+  }, [filterYear, filterMonth]);
 
   const availableYears = useMemo(() => {
     const startYear = 2024;
@@ -122,7 +139,9 @@ export default function DailyUpdates() {
 
     try {
       const { time } = getTodayParts();
-      const entryDate = updateDate || getTodayParts().date;
+      const selectedMonth = filterMonth?.padStart(2, "0") || "";
+      const fallbackDate = filterYear && selectedMonth ? `${filterYear}-${selectedMonth}-01` : getTodayParts().date;
+      const entryDate = updateDate || fallbackDate;
       setUpdateDate(entryDate);
 
       let documentEntry = null;
@@ -172,13 +191,14 @@ export default function DailyUpdates() {
       writeStoredUpdates(nextUpdates);
 
       setPersonName(user?.displayName || "");
-      const { date: todayDate } = getTodayParts();
-      setUpdateDate(todayDate);
+      setUpdateDate(entryDate);
       setNote("");
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setFilterYear(todayDate.slice(0, 4));
-      setFilterMonth(todayDate.slice(5, 7));
+      if (filterYear && filterMonth) {
+        setFilterYear(filterYear);
+        setFilterMonth(filterMonth);
+      }
     } catch (error) {
       console.error("Failed to save daily update", error);
       setUploadError("Unable to save the update right now.");
