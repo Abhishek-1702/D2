@@ -10,6 +10,35 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
+function normalizeStoragePath(filePath) {
+  if (!filePath) {
+    return "";
+  }
+
+  const cleaned = String(filePath).replace(/^\/+|\/+$/g, "");
+  if (!cleaned) {
+    return "";
+  }
+
+  const parts = cleaned.split("/").filter(Boolean);
+  if (!parts.length) {
+    return "";
+  }
+
+  if (parts[0].toLowerCase() === "documents") {
+    return parts.slice(1).join("/");
+  }
+
+  return parts.join("/");
+}
+
+function buildStoragePath(folder, fileName) {
+  const normalizedFolder = normalizeStoragePath(folder || "documents");
+  const normalizedFileName = String(fileName || "file").replace(/^\/+|\/+$/g, "");
+  const stem = normalizedFolder ? `documents/${normalizedFolder}` : "documents";
+  return `${stem}/${normalizedFileName}`;
+}
+
 /**
  * Upload file to Supabase Storage
  */
@@ -22,7 +51,7 @@ export async function uploadFileToStorage(
   }
 
   const fileName = `${Date.now()}_${file.name}`;
-  const filePath = `${folder}/${fileName}`;
+  const filePath = buildStoragePath(folder, fileName);
 
   console.log("========== UPLOAD ==========");
   console.log("Bucket:", "Documents");
@@ -61,13 +90,26 @@ export async function deleteFile(filePath) {
     throw new Error("Supabase not initialized");
   }
 
-  const { error } = await supabase.storage
-    .from("Documents")
-    .remove([filePath]);
+  const normalized = normalizeStoragePath(filePath);
+  const candidates = Array.from(new Set([filePath, normalized, `documents/${normalized}`, `Documents/${normalized}`].filter(Boolean)));
 
-  if (error) {
-    console.error(error);
-    throw error;
+  let lastError = null;
+
+  for (const candidate of candidates) {
+    const { error } = await supabase.storage
+      .from("Documents")
+      .remove([candidate]);
+
+    if (!error) {
+      return;
+    }
+
+    lastError = error;
+  }
+
+  if (lastError) {
+    console.error(lastError);
+    throw lastError;
   }
 }
 

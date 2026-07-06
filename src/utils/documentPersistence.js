@@ -66,11 +66,11 @@ export function getStoragePathFromUrl(url) {
   if (!url) return null;
   try {
     const decoded = decodeURIComponent(url);
-    const marker = "/storage/v1/object/public/Documents/";
-    const startIndex = decoded.indexOf(marker);
-    if (startIndex < 0) return null;
-    const afterMarker = decoded.slice(startIndex + marker.length);
-    return afterMarker.split("?")[0];
+    const marker = /\/storage\/v1\/object\/public\/[^/]+\//;
+    const match = decoded.match(marker);
+    if (!match) return null;
+    const afterMarker = decoded.slice(decoded.indexOf(match[0]) + match[0].length);
+    return afterMarker.split("?")[0].replace(/^\/+/, "");
   } catch (error) {
     console.error("Failed to parse storage path", error);
     return null;

@@ -121,8 +121,9 @@ export default function DailyUpdates() {
     setUploadError("");
 
     try {
-      const { date, time } = getTodayParts();
-      setUpdateDate(date);
+      const { time } = getTodayParts();
+      const entryDate = updateDate || getTodayParts().date;
+      setUpdateDate(entryDate);
 
       let documentEntry = null;
       if (selectedFile) {
@@ -159,7 +160,7 @@ export default function DailyUpdates() {
       const newEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         personName: personName.trim(),
-        date,
+        date: entryDate,
         time,
         note: note.trim(),
         document: documentEntry,
@@ -195,6 +196,23 @@ export default function DailyUpdates() {
     writeStoredUpdates(nextUpdates);
 
     if (target.document.path) {
+      try {
+        await deleteFile(target.document.path);
+      } catch (error) {
+        console.error("Failed to delete daily update document", error);
+      }
+    }
+  };
+
+  const handleDeleteEntry = async (updateId) => {
+    const target = updates.find((item) => item.id === updateId);
+    if (!target) return;
+
+    const nextUpdates = updates.filter((item) => item.id !== updateId);
+    setUpdates(nextUpdates);
+    writeStoredUpdates(nextUpdates);
+
+    if (target.document?.path) {
       try {
         await deleteFile(target.document.path);
       } catch (error) {
@@ -336,9 +354,25 @@ export default function DailyUpdates() {
             visibleUpdates.map((item) => (
               <div key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{item.personName}</p>
-                    <p className="text-xs text-gray-500">{item.date} • {item.time}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{item.personName}</p>
+                      <p className="text-xs text-gray-500">{item.date} • {item.time}</p>
+                    </div>
+                    {user ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Delete this full update entry?")) {
+                            handleDeleteEntry(item.id);
+                          }
+                        }}
+                        className="text-gray-400 hover:text-red-500"
+                        title="Delete full update"
+                      >
+                        <X size={16} />
+                      </button>
+                    ) : null}
                   </div>
                   {item.note ? <p className="text-sm text-gray-600">{item.note}</p> : null}
                 </div>
