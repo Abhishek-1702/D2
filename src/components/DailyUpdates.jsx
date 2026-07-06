@@ -91,23 +91,6 @@ export default function DailyUpdates() {
     if (!updateDate) setUpdateDate(date);
   }, [updateDate]);
 
-  useEffect(() => {
-    if (!filterYear || !filterMonth) return;
-
-    const selectedMonth = filterMonth.padStart(2, "0");
-    const fallbackDate = `${filterYear}-${selectedMonth}-01`;
-
-    setUpdateDate((currentDate) => {
-      if (!currentDate) return fallbackDate;
-      const currentYear = currentDate.slice(0, 4);
-      const currentMonth = currentDate.slice(5, 7);
-      if (currentYear === filterYear && currentMonth === selectedMonth) {
-        return currentDate;
-      }
-      return fallbackDate;
-    });
-  }, [filterYear, filterMonth]);
-
   const availableYears = useMemo(() => {
     const startYear = 2024;
     const endYear = 2030;
@@ -116,7 +99,7 @@ export default function DailyUpdates() {
       years.push(String(year));
     }
     updates.forEach((item) => {
-      const itemYear = item.date?.slice(0, 4);
+      const itemYear = item.reportYear || item.date?.slice(0, 4);
       if (itemYear && !years.includes(itemYear)) {
         years.push(itemYear);
       }
@@ -130,8 +113,8 @@ export default function DailyUpdates() {
 
   const visibleUpdates = useMemo(() => {
     return updates.filter((item) => {
-      const itemYear = item.date?.slice(0, 4);
-      const itemMonth = item.date?.slice(5, 7);
+      const itemYear = item.reportYear || item.date?.slice(0, 4);
+      const itemMonth = item.reportMonth || item.date?.slice(5, 7);
       if (filterYear && itemYear !== filterYear) return false;
       if (filterMonth && itemMonth !== filterMonth.padStart(2, "0")) return false;
       return true;
@@ -142,7 +125,17 @@ export default function DailyUpdates() {
     writeStoredUpdates(nextUpdates);
     if (isSupabaseConfigured) {
       try {
-        await writeSharedJsonFile("app-data/daily-updates-state.json", nextUpdates);
+        const remoteUpdates = nextUpdates.map((item) => {
+          const doc = item.document;
+          const documentForRemote = doc && !doc.localOnly && doc.url && doc.path
+            ? { ...doc }
+            : null;
+          return {
+            ...item,
+            document: documentForRemote,
+          };
+        });
+        await writeSharedJsonFile("app-data/daily-updates-state.json", remoteUpdates);
       } catch (error) {
         console.error("Failed to persist daily updates to shared storage", error);
       }
@@ -161,9 +154,9 @@ export default function DailyUpdates() {
 
     try {
       const { time } = getTodayParts();
-      const selectedMonth = filterMonth?.padStart(2, "0") || "";
-      const fallbackDate = filterYear && selectedMonth ? `${filterYear}-${selectedMonth}-01` : getTodayParts().date;
-      const entryDate = updateDate || fallbackDate;
+      const entryDate = updateDate || getTodayParts().date;
+      const reportYear = filterYear;
+      const reportMonth = filterMonth?.padStart(2, "0") || "";
       setUpdateDate(entryDate);
 
       let documentEntry = null;
@@ -174,8 +167,9 @@ export default function DailyUpdates() {
           return;
         }
 
-        let url = URL.createObjectURL(selectedFile);
+        let url = null;
         let path = null;
+        let uploadFailed = false;
 
         if (isSupabaseConfigured) {
           try {
@@ -183,8 +177,16 @@ export default function DailyUpdates() {
             url = res.url;
             path = res.path;
           } catch (error) {
-            console.error("Daily update upload failed, using local fallback", error);
+            console.error("Daily update upload failed", error);
+            uploadFailed = true;
+            setUploadError("Document upload failed. The update will save locally only.");
           }
+        }
+
+        if (!url && !path) {
+          // Local device can preview the file, but shared remote state should not persist the blob URL.
+          url = null;
+          path = null;
         }
 
         documentEntry = {
@@ -195,6 +197,7 @@ export default function DailyUpdates() {
           url,
           path,
           uploadedAt: new Date().toISOString(),
+          localOnly: uploadFailed || (!isSupabaseConfigured && !url),
         };
       }
 
@@ -202,6 +205,8 @@ export default function DailyUpdates() {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         personName: personName.trim(),
         date: entryDate,
+        reportYear,
+        reportMonth,
         time,
         note: note.trim(),
         document: documentEntry,
