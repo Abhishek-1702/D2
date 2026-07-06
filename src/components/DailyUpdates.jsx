@@ -74,6 +74,16 @@ export default function DailyUpdates() {
       if (Array.isArray(remoteUpdates) && remoteUpdates.length > 0) {
         writeStoredUpdates(sorted);
       }
+
+      if ((!filterYear || !filterMonth) && sorted.length > 0) {
+        const latestReport = sorted[0];
+        const latestYear = latestReport.reportYear || latestReport.date?.slice(0, 4);
+        const latestMonth = latestReport.reportMonth || latestReport.date?.slice(5, 7);
+        if (latestYear && latestMonth) {
+          setFilterYear(latestYear);
+          setFilterMonth(latestMonth.padStart(2, "0"));
+        }
+      }
     };
 
     void loadUpdatesState();

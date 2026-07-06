@@ -258,13 +258,14 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
           </button>
 
           <div className="ml-2 sm:ml-4 flex items-center gap-2 sm:gap-3">
-            {/* Request Access button */}
-            <button
-              onClick={openRequestModal}
-              className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
-            >
-              Request access
-            </button>
+            {!user ? (
+              <button
+                onClick={openRequestModal}
+                className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
+              >
+                Request access
+              </button>
+            ) : null}
 
             {user ? (
               <>
