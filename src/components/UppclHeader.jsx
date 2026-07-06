@@ -2,10 +2,15 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { readRequests, addRequest, updateRequestStatus } from "../utils/accessRequests";
 
 export default function UppclHeader({ activeTab, setActiveTab, language = 'en', setLanguage }) {
   const { user, signIn, signOut, authError, clearAuthError } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [requests, setRequests] = useState([]);
+  const [requestForm, setRequestForm] = useState({ name: "", mobile: "", email: "", designation: "", office: "" });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,6 +65,56 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const toggleLanguage = () => setLanguage(isHindi ? 'en' : 'hi');
   const skipToContent = () => document.getElementById('main-content')?.scrollIntoView({ behavior: 'smooth' });
   const openLink = (href) => window.open(href, '_blank', 'noreferrer');
+
+  const OWNER_EMAIL = process.env.REACT_APP_OWNER_EMAIL || null;
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const items = await readRequests();
+        if (mounted) setRequests(items);
+      } catch (e) {
+        // ignore
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  const openRequestModal = () => {
+    setRequestForm({ name: '', mobile: '', email: '', designation: '', office: '' });
+    setRequestModalOpen(true);
+  };
+
+  const submitRequest = async (e) => {
+    e.preventDefault();
+    const entry = {
+      id: Date.now(),
+      name: requestForm.name.trim(),
+      mobile: requestForm.mobile.trim(),
+      email: requestForm.email.trim().toLowerCase(),
+      designation: requestForm.designation.trim(),
+      office: requestForm.office.trim(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    await addRequest(entry);
+    const items = await readRequests();
+    setRequests(items);
+    setRequestModalOpen(false);
+    // show confirmation
+    // eslint-disable-next-line no-alert
+    alert('Access request submitted — pending approval.');
+  };
+
+  const grantRequest = async (emailToGrant) => {
+    await updateRequestStatus(emailToGrant, 'approved');
+    const items = await readRequests();
+    setRequests(items);
+    // eslint-disable-next-line no-alert
+    alert(`${emailToGrant} has been granted access.`);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -203,11 +258,23 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
           </button>
 
           <div className="ml-2 sm:ml-4 flex items-center gap-2 sm:gap-3">
+            {/* Request Access button */}
+            <button
+              onClick={openRequestModal}
+              className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
+            >
+              Request access
+            </button>
+
             {user ? (
               <>
                 <span className="hidden sm:block text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded">
                   {user.email}
                 </span>
+                {/* show pending badge if user has pending request */}
+                {requests.find(r => r.email === user.email && r.status === 'pending') ? (
+                  <span className="text-xs ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800">Access request pending</span>
+                ) : null}
                 <button
                   onClick={async () => { clearAuthError(); await signOut(); }}
                   className="flex items-center gap-1 text-red-600 hover:underline text-xs sm:text-sm"
@@ -223,6 +290,15 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                 LOGIN
               </button>
             )}
+            {/* Owner admin: show access requests panel */}
+            {user && OWNER_EMAIL && user.email === OWNER_EMAIL ? (
+              <button
+                onClick={() => { setAdminModalOpen(true); setActiveTab('access-requests'); }}
+                className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
+              >
+                Access requests
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -385,6 +461,71 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
           </div>
         </div>,
         document.body
+      )}
+      {requestModalOpen && createPortal(
+        <div onClick={() => setRequestModalOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1f498c]">Request Access</h2>
+              <button onClick={() => setRequestModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+            <form onSubmit={submitRequest} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500">Name</label>
+                  <input required value={requestForm.name} onChange={(e)=>setRequestForm({...requestForm,name:e.target.value})} className="w-full rounded border px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500">Mobile</label>
+                  <input required value={requestForm.mobile} onChange={(e)=>setRequestForm({...requestForm,mobile:e.target.value})} className="w-full rounded border px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500">Email</label>
+                  <input required type="email" value={requestForm.email} onChange={(e)=>setRequestForm({...requestForm,email:e.target.value})} className="w-full rounded border px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500">Designation</label>
+                  <input value={requestForm.designation} onChange={(e)=>setRequestForm({...requestForm,designation:e.target.value})} className="w-full rounded border px-3 py-2" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs text-gray-500">Office</label>
+                  <input value={requestForm.office} onChange={(e)=>setRequestForm({...requestForm,office:e.target.value})} className="w-full rounded border px-3 py-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={()=>setRequestModalOpen(false)} className="px-3 py-2 rounded border">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded bg-[#1f498c] text-white">Submit request</button>
+              </div>
+            </form>
+          </div>
+        </div>, document.body
+      )}
+
+      {adminModalOpen && createPortal(
+        <div onClick={() => setAdminModalOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1f498c]">Access requests</h2>
+              <button onClick={() => setAdminModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+            <div className="space-y-3 max-h-[60vh] overflow-auto">
+              {requests.filter(r=>r.status==='pending').length === 0 ? (
+                <div className="text-sm text-gray-500">No pending requests.</div>
+              ) : requests.filter(r=>r.status==='pending').map((r)=> (
+                <div key={r.id} className="p-3 border rounded flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold">{r.name} — {r.email}</div>
+                    <div className="text-xs text-gray-500">{r.designation} • {r.office} • {r.mobile}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={()=>grantRequest(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm">Grant access</button>
+                    <button onClick={()=>updateRequestStatus(r.email,'rejected').then(()=>readRequests().then(setRequests))} className="px-3 py-1 rounded bg-gray-100 text-sm">Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>, document.body
       )}
     </>
   );

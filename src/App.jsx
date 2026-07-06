@@ -6,6 +6,7 @@ import Projects from "./components/Projects";
 import Meetings from "./components/Meetings";
 import FetchDocument from "./components/FetchDocument";
 import DailyUpdates from "./components/DailyUpdates";
+import AccessRequests from "./components/AccessRequests";
 import { AuthProvider } from "./contexts/AuthContext";
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
           {activeTab === "projects" && <Projects language={language} />}
           {activeTab === "meetings" && <Meetings language={language} />}
           {activeTab === "dailyupdates" && <DailyUpdates language={language} />}
+          {activeTab === "access-requests" && <AccessRequests onBack={() => setActiveTab('dashboard')} />}
           {activeTab === "fetch" && <FetchDocument language={language} />}
         </main>
       </div>
