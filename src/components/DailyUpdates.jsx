@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Eye, FileText, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
+import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 
 const STORAGE_KEY = "kesco_daily_updates_v1";
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
@@ -63,9 +64,19 @@ export default function DailyUpdates() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const storedUpdates = readStoredUpdates();
-    const sorted = [...storedUpdates].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-    setUpdates(sorted);
+    const loadUpdatesState = async () => {
+      const storedUpdates = readStoredUpdates();
+      const remoteUpdates = await readSharedJsonFile("app-data/daily-updates-state.json");
+      const sourceUpdates = Array.isArray(remoteUpdates) && remoteUpdates.length > 0 ? remoteUpdates : storedUpdates;
+      const sorted = [...sourceUpdates].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      setUpdates(sorted);
+
+      if (Array.isArray(remoteUpdates) && remoteUpdates.length > 0) {
+        writeStoredUpdates(sorted);
+      }
+    };
+
+    void loadUpdatesState();
   }, []);
 
   useEffect(() => {
@@ -126,6 +137,17 @@ export default function DailyUpdates() {
       return true;
     });
   }, [filterMonth, filterYear, updates]);
+
+  const persistUpdates = async (nextUpdates) => {
+    writeStoredUpdates(nextUpdates);
+    if (isSupabaseConfigured) {
+      try {
+        await writeSharedJsonFile("app-data/daily-updates-state.json", nextUpdates);
+      } catch (error) {
+        console.error("Failed to persist daily updates to shared storage", error);
+      }
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -188,7 +210,7 @@ export default function DailyUpdates() {
 
       const nextUpdates = [newEntry, ...updates].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       setUpdates(nextUpdates);
-      writeStoredUpdates(nextUpdates);
+      await persistUpdates(nextUpdates);
 
       setPersonName(user?.displayName || "");
       setUpdateDate(entryDate);
@@ -213,7 +235,7 @@ export default function DailyUpdates() {
 
     const nextUpdates = updates.map((item) => (item.id === updateId ? { ...item, document: null } : item));
     setUpdates(nextUpdates);
-    writeStoredUpdates(nextUpdates);
+    await persistUpdates(nextUpdates);
 
     if (target.document.path) {
       try {
@@ -230,7 +252,7 @@ export default function DailyUpdates() {
 
     const nextUpdates = updates.filter((item) => item.id !== updateId);
     setUpdates(nextUpdates);
-    writeStoredUpdates(nextUpdates);
+    await persistUpdates(nextUpdates);
 
     if (target.document?.path) {
       try {
