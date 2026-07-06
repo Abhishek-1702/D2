@@ -21,26 +21,28 @@ export async function uploadFileToStorage(
     throw new Error("Supabase not initialized");
   }
 
-  const fileName =
-    `${Date.now()}_${file.name}`;
+  const fileName = `${Date.now()}_${file.name}`;
+  const filePath = `${folder}/${fileName}`;
 
-  const filePath =
-    `${folder}/${fileName}`;
+  console.log("========== UPLOAD ==========");
+  console.log("Bucket:", "Documents");
+  console.log("Folder:", folder);
+  console.log("Uploading to:", filePath);
 
-  const { error } =
-    await supabase.storage
-      .from("Documents")
-      .upload(filePath, file);
+  const { error } = await supabase.storage
+    .from("Documents")
+    .upload(filePath, file);
 
   if (error) {
-    console.error(error);
+    console.error("Upload Error:", error);
     throw error;
   }
 
-  const { data } =
-    supabase.storage
-      .from("Documents")
-      .getPublicUrl(filePath);
+  const { data } = supabase.storage
+    .from("Documents")
+    .getPublicUrl(filePath);
+
+  console.log("Public URL:", data.publicUrl);
 
   return {
     name: file.name,
@@ -59,30 +61,38 @@ export async function deleteFile(filePath) {
     throw new Error("Supabase not initialized");
   }
 
-  const { error } =
-    await supabase.storage
-      .from("Documents")
-      .remove([filePath]);
+  const { error } = await supabase.storage
+    .from("Documents")
+    .remove([filePath]);
 
-  if (error) throw error;
+  if (error) {
+    console.error(error);
+    throw error;
+  }
 }
 
 /**
  * List files in folder
  */
-export async function listFiles(
-  folder = "Documents"
-) {
+export async function listFiles(folder = "Documents") {
   if (!supabase) {
     throw new Error("Supabase not initialized");
   }
 
-  const { data, error } =
-    await supabase.storage
-      .from("Documents")
-      .list(folder);
+  console.log("========== LIST ==========");
+  console.log("Bucket:", "Documents");
+  console.log("Folder Requested:", folder);
 
-  if (error) throw error;
+  const { data, error } = await supabase.storage
+    .from("Documents")
+    .list(folder);
+
+  if (error) {
+    console.error("List Error:", error);
+    throw error;
+  }
+
+  console.log("Files Returned:", data);
 
   return data;
 }
