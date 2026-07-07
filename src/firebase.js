@@ -20,6 +20,7 @@ import {
 
 import {
   getAuth,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
