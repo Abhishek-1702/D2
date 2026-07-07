@@ -241,6 +241,15 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               <button type="button" onClick={() => openLink('https://upptcl.org/upptcl')} className="text-[10px] lg:text-xs hover:underline">
                 VBTS
               </button>
+              {showRequestAccess ? (
+                <button
+                  type="button"
+                  onClick={openRequestModal}
+                  className="rounded-full border border-white/40 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-white/20"
+                >
+                  Request access
+                </button>
+              ) : null}
               <span className="rounded-full bg-white/15 px-2 lg:px-3 py-1 text-[10px] lg:text-[11px] font-semibold whitespace-nowrap">
                 {formattedTime}
               </span>
@@ -271,9 +280,20 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                 </div>
               )}
             </div>
-            <div className="hidden lg:block rounded-full bg-[#ffeb3b] px-3 py-1 text-[11px] font-semibold text-black">
-              8th June - 18th July 2026
-            </div>
+            {user ? (
+              <button
+                type="button"
+                onClick={async () => { clearAuthError(); await signOut(); }}
+                className="hidden lg:flex items-center gap-1 rounded-full bg-red-500/90 px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm transition hover:bg-red-600"
+              >
+                <LogOut size={14} />
+                <span>Sign out</span>
+              </button>
+            ) : (
+              <div className="hidden lg:block rounded-full bg-[#ffeb3b] px-3 py-1 text-[11px] font-semibold text-black">
+                8th June - 18th July 2026
+              </div>
+            )}
           </div>
         </div>
 
@@ -339,15 +359,6 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
           </button>
 
           <div className="ml-2 sm:ml-4 flex items-center gap-2 sm:gap-3">
-            {showRequestAccess ? (
-              <button
-                onClick={openRequestModal}
-                className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
-              >
-                Request access
-              </button>
-            ) : null}
-
             {user ? (
               <>
                 <div className="hidden sm:flex flex-col items-end text-right">
@@ -374,12 +385,6 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                 {requests.find(r => r.email === user.email && r.status === 'pending') ? (
                   <span className="text-xs ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800">Access request pending</span>
                 ) : null}
-                <button
-                  onClick={async () => { clearAuthError(); await signOut(); }}
-                  className="flex items-center gap-1 text-red-600 hover:underline text-xs sm:text-sm"
-                >
-                  <LogOut size={16} /> <span className="hidden sm:inline">Sign out</span>
-                </button>
               </>
             ) : (
               <button
