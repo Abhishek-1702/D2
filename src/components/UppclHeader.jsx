@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, addRequest, updateRequestStatus, getRequestByEmail, clearAllRequests } from "../utils/accessRequests";
+import { readRequests, readCachedRequests, addRequest, updateRequestStatus, getRequestByEmail, clearAllRequests } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { reauthenticateUser, updateUserPassword } from "../firebase";
@@ -159,6 +159,11 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
 
   useEffect(() => {
     let mounted = true;
+    const cached = readCachedRequests();
+    if (mounted) {
+      setRequests(cached);
+    }
+
     const load = async () => {
       try {
         const items = await readRequests();

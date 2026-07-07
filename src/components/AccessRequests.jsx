@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, updateRequestStatus, clearAllRequests } from "../utils/accessRequests";
+import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
@@ -22,6 +22,11 @@ export default function AccessRequests({ onBack }) {
   };
 
   useEffect(() => {
+    const cached = readCachedRequests();
+    if (cached.length) {
+      setRequests(cached);
+    }
+
     const load = async () => {
       setLoading(true);
       try {

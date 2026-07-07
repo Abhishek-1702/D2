@@ -18,11 +18,13 @@ function dispatchRequestUpdateEvent(list) {
   window.dispatchEvent(new CustomEvent("kesco-access-requests-updated", { detail: { requests: list } }));
 }
 
-function writeLocal(list) {
+function writeLocal(list, notify = true) {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    dispatchRequestUpdateEvent(list);
+    if (notify) {
+      dispatchRequestUpdateEvent(list);
+    }
     return true;
   } catch (e) {
     console.error("writeLocal access requests failed", e);
@@ -34,12 +36,16 @@ export async function readRequests() {
   try {
     const remote = await readSharedJsonFile("app-data/access-requests.json");
     if (Array.isArray(remote)) {
-      writeLocal(remote);
+      writeLocal(remote, false);
       return remote;
     }
   } catch (e) {
     // ignore remote failure and fall back to local cache
   }
+  return readLocal();
+}
+
+export function readCachedRequests() {
   return readLocal();
 }
 
