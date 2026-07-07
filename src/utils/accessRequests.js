@@ -38,15 +38,15 @@ function normalizeRequestEntry(entry) {
   if (!entry || typeof entry !== 'object') return null;
   const email = String(entry.email || '').trim().toLowerCase();
   if (!email) return null;
-  const createdAt = entry.createdAt || entry.createdat || new Date().toISOString();
-  const updatedAt = entry.updatedAt || entry.updatedat || createdAt;
+  const createdat = entry.createdat || entry.createdAt || new Date().toISOString();
+  const updatedat = entry.updatedat || entry.updatedAt || createdat;
   return {
     ...entry,
     id: entry.id || `${Date.now()}-${email.replace(/[^a-z0-9]/g, '-')}`,
     email,
     status: entry.status || 'pending',
-    createdAt,
-    updatedAt,
+    createdAt: createdat,
+    updatedAt: updatedat,
   };
 }
 
@@ -135,9 +135,8 @@ async function writeRemoteRequestsToSupabase(list) {
       designation: r.designation || null,
       office: r.office || null,
       status: r.status || null,
-      createdat: r.createdAt || r.createdat || new Date().toISOString(),
-      updatedat: r.updatedAt || r.updatedat || r.createdAt || new Date().toISOString(),
-      rawdesignation: r.rawDesignation || r.rawdesignation || null,
+      createdat: r.createdat || r.createdAt || new Date().toISOString(),
+      updatedat: r.updatedat || r.updatedAt || r.createdat || new Date().toISOString(),
     }));
 
     const { error } = await supabase.from("access_requests").upsert(remoteRows, { onConflict: "email" });
