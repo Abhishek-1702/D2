@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, addRequest, updateRequestStatus } from "../utils/accessRequests";
+import { readRequests, addRequest, updateRequestStatus, getRequestByEmail } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
+import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { reauthenticateUser, updateUserPassword } from "../firebase";
 import { getAuthorityOptions } from "../utils/meetingNotifications";
 
@@ -14,6 +15,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [requests, setRequests] = useState([]);
   const [requestForm, setRequestForm] = useState({ name: "", mobile: "", email: "", designationOption: "", designationCustom: "", office: "" });
+  const [requestError, setRequestError] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -162,6 +164,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
 
   const openRequestModal = () => {
     setRequestForm({ name: '', mobile: '', email: '', designationOption: '', designationCustom: '', office: '' });
+    setRequestError('');
     setRequestModalOpen(true);
   };
 
@@ -169,18 +172,26 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
 
   const submitRequest = async (e) => {
     e.preventDefault();
+    setRequestError('');
     const name = requestForm.name.trim();
     const selectedOption = requestForm.designationOption;
     const customDesignation = requestForm.designationCustom.trim();
     const designationValue = selectedOption && selectedOption !== 'other'
       ? selectedOption
       : customDesignation;
+    const normalizedEmail = requestForm.email.trim().toLowerCase();
+
+    const existingRequest = await getRequestByEmail(normalizedEmail);
+    if (existingRequest) {
+      setRequestError('Email already used');
+      return;
+    }
 
     const entry = {
       id: Date.now(),
       name,
       mobile: requestForm.mobile.trim(),
-      email: requestForm.email.trim().toLowerCase(),
+      email: normalizedEmail,
       designation: designationValue,
       rawDesignation: selectedOption || customDesignation,
       office: requestForm.office.trim(),
@@ -197,6 +208,26 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   };
 
   const grantRequest = async (emailToGrant) => {
+    const request = requests.find((r) => r.email === emailToGrant);
+    let firebaseUserCreated = false;
+
+    if (isFirebaseConfigured && request) {
+      const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1`;
+      try {
+        await createFirebaseUser(request.email, tempPassword);
+        firebaseUserCreated = true;
+      } catch (error) {
+        if (error?.code === 'EMAIL_EXISTS' || error?.code === 'auth/email-already-in-use') {
+          firebaseUserCreated = true;
+        } else {
+          console.error('Failed to create Firebase user for grant request', error);
+          // eslint-disable-next-line no-alert
+          alert(`Unable to create Firebase user: ${error?.message || error}`);
+          return;
+        }
+      }
+    }
+
     await updateRequestStatus(emailToGrant, 'approved');
     const items = await readRequests();
     setRequests(items);
@@ -237,8 +268,10 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     clearAuthError();
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
-      setModalOpen(false);
+      const signedIn = await signIn(email.trim(), password);
+      if (signedIn) {
+        setModalOpen(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -761,6 +794,11 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               <h2 className="text-xl font-bold text-[#1f498c]">Request Access</h2>
               <button onClick={() => setRequestModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
             </div>
+            {requestError ? (
+              <div className="text-xs text-red-500 bg-red-50 rounded px-3 py-2">
+                {requestError}
+              </div>
+            ) : null}
             <form onSubmit={submitRequest} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -833,8 +871,8 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                     <div className="text-xs text-gray-500">{r.designation} • {r.office} • {r.mobile}</div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={()=>grantRequest(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm">Grant access</button>
-                    <button onClick={()=>updateRequestStatus(r.email,'rejected').then(()=>readRequests().then(setRequests))} className="px-3 py-1 rounded bg-gray-100 text-sm">Reject</button>
+                    <button onClick={()=>grantRequest(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95">Grant access</button>
+                    <button onClick={()=>updateRequestStatus(r.email,'rejected').then(()=>readRequests().then(setRequests))} className="px-3 py-1 rounded bg-gray-100 text-sm cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95">Reject</button>
                   </div>
                 </div>
               ))}

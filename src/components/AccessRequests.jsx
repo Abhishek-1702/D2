@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { readRequests, updateRequestStatus } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
+import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 
 export default function AccessRequests({ onBack }) {
   const { user } = useAuth();
@@ -52,11 +53,31 @@ export default function AccessRequests({ onBack }) {
     if (!request) return;
 
     const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1`;
+    let firebaseUserCreated = false;
+
+    if (isFirebaseConfigured) {
+      try {
+        await createFirebaseUser(request.email, tempPassword);
+        firebaseUserCreated = true;
+      } catch (error) {
+        if (error?.code === 'EMAIL_EXISTS' || error?.code === 'auth/email-already-in-use') {
+          console.warn('Firebase user already exists for approved request', request.email);
+          firebaseUserCreated = true;
+        } else {
+          console.error('Failed to create Firebase user for access request', error);
+          // eslint-disable-next-line no-alert
+          alert(`Unable to create Firebase user: ${error?.message || error}`);
+          return;
+        }
+      }
+    }
+
     await updateRequestStatus(email, "approved");
     await saveUserProfileMetadata(email, {
       mustChangePassword: true,
       tempPasswordCreatedAt: new Date().toISOString(),
       displayName: request.name,
+      firebaseUserCreated,
     });
     await refresh();
 

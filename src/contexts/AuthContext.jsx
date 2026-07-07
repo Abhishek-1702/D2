@@ -23,7 +23,15 @@ export function AuthProvider({ children }) {
       return u;
     } catch (e) {
       console.error('signIn failed', e);
-      setAuthError(e?.message || String(e));
+      const code = e?.code || '';
+      const message = e?.message || '';
+      if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || message.toLowerCase().includes('wrong-password') || message.toLowerCase().includes('user-not-found')) {
+        setAuthError('Incorrect user ID or password.');
+      } else if (code === 'auth/invalid-email') {
+        setAuthError('Please enter a valid email address.');
+      } else {
+        setAuthError(message || 'Unable to sign in. Please check your credentials.');
+      }
       return null;
     }
   };

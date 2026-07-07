@@ -78,6 +78,34 @@ export async function registerWithEmailPassword(email, password) {
   return userCredential.user;
 }
 
+export async function createFirebaseUser(email, password) {
+  const apiKey = firebaseConfig.apiKey;
+  if (!apiKey) throw new Error("Firebase API key is not configured");
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: true,
+      }),
+    }
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data?.error?.message || "Failed to create Firebase user";
+    const error = new Error(message);
+    error.code = message;
+    throw error;
+  }
+
+  return data;
+}
+
 export async function signInWithEmailPassword(email, password) {
   if (!auth) throw new Error("Firebase Auth not initialized");
 
