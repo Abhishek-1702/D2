@@ -39,17 +39,19 @@ export default function AccessRequests({ onBack }) {
   }, []);
 
   useEffect(() => {
-    const handleRefresh = (event) => {
+    const handleRefresh = async (event) => {
       if (event?.detail?.requests) {
         setRequests(event.detail.requests);
         return;
       }
+
       if (event?.type === 'storage') {
-        const cached = readCachedRequests();
-        setRequests(cached);
-        return;
+        if (event.key && !['kesco_access_requests_v1', 'kesco_access_requests_sync_v1'].includes(event.key)) {
+          return;
+        }
       }
-      refresh();
+
+      await refresh();
     };
 
     window.addEventListener('focus', handleRefresh);
@@ -112,7 +114,7 @@ export default function AccessRequests({ onBack }) {
       }
 
       await updateRequestStatus(email, "approved");
-      setRequests((prev) => prev.map((r) => (r.email === email ? { ...r, status: 'approved' } : r)));
+      await refresh();
       await saveUserProfileMetadata(email, {
         mustChangePassword: true,
         tempPasswordCreatedAt: new Date().toISOString(),
@@ -139,7 +141,7 @@ export default function AccessRequests({ onBack }) {
 
     try {
       await updateRequestStatus(email, "rejected");
-      setRequests((prev) => prev.map((r) => (r.email === email ? { ...r, status: 'rejected' } : r)));
+      await refresh();
 
       const subject = "Access request declined";
       const body = `Hello ${request.name},\n\nYour request for access has been declined. If you believe this is a mistake, please contact the admin.\n\nRegards,\nKESCO Portal`;

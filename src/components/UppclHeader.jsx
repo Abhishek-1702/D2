@@ -173,16 +173,17 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       }
     };
 
-    const handleRequestUpdate = (event) => {
+    const handleRequestUpdate = async (event) => {
       if (event?.detail?.requests) {
         setRequests(event.detail.requests);
         return;
       }
       if (event?.type === 'storage') {
-        setRequests(readCachedRequests());
-        return;
+        if (event.key && !['kesco_access_requests_v1', 'kesco_access_requests_sync_v1'].includes(event.key)) {
+          return;
+        }
       }
-      load();
+      await load();
     };
 
     load();

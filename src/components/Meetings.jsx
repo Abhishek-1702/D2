@@ -1,7 +1,7 @@
 // src/components/Meetings.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Eye } from "lucide-react";
-import { getDesignationDisplayLabel, resolveMeetingDesignation } from "../data/officers";
+import { AUTHORITY_HIERARCHY, getDesignationDisplayLabel, resolveMeetingDesignation } from "../data/officers";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
@@ -105,6 +105,19 @@ export default function Meetings() {
   const canManageDocuments = isAdminUser(user);
   const authorityOptions = getAuthorityOptions();
 
+  function buildMeetingAuthorityOptions(nodes = AUTHORITY_HIERARCHY, depth = 0) {
+    return nodes.flatMap((node) => {
+      const prefix = depth > 0 ? "\u00A0".repeat(depth * 2) : "";
+      const option = { label: `${prefix}${node.label}`, value: node.label };
+      if (!Array.isArray(node.children) || node.children.length === 0) {
+        return [option];
+      }
+      return [option, ...buildMeetingAuthorityOptions(node.children, depth + 1)];
+    });
+  }
+
+  const meetingAuthorityOptions = buildMeetingAuthorityOptions();
+
   const persistMeetingsState = async (nextMeetings) => {
     try {
       writeStoredMeetings(nextMeetings);
@@ -191,11 +204,6 @@ export default function Meetings() {
     readProfile();
   }, [user]);
 
-  useEffect(() => {
-    if (userProfile.name && !meetingConductedBy.trim()) {
-      setMeetingConductedBy(userProfile.name);
-    }
-  }, [userProfile.name, meetingConductedBy]);
 
   useEffect(() => {
     const loadMeetingsState = async () => {
@@ -263,7 +271,7 @@ export default function Meetings() {
         time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
         designation: selectedDesignation,
         officer: getDesignationDisplayLabel(personName, selectedDesignation),
-        conductedBy: meetingConductedBy.trim() || userProfile.name || "",
+        conductedBy: meetingConductedBy.trim(),
         profileName: userProfile.name || "",
         profileDesignation: userProfile.designation || "",
         note: note.trim(),
@@ -508,7 +516,7 @@ export default function Meetings() {
                 className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
               >
                 <option value="">Choose designation</option>
-                {authorityOptions.map((option) => (
+                {meetingAuthorityOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
                 <option value="other">Others</option>
