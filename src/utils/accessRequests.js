@@ -28,6 +28,55 @@ function writeSyncKey() {
   }
 }
 
+function parseTimestamp(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function normalizeRequestEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const email = String(entry.email || '').trim().toLowerCase();
+  if (!email) return null;
+  const createdAt = entry.createdAt || new Date().toISOString();
+  const updatedAt = entry.updatedAt || createdAt;
+  return {
+    ...entry,
+    id: entry.id || `${Date.now()}-${email.replace(/[^a-z0-9]/g, '-')}`,
+    email,
+    status: entry.status || 'pending',
+    createdAt,
+    updatedAt,
+  };
+}
+
+function mergeRequests(local, remote) {
+  const all = Array.isArray(local) ? local : [];
+  const remoteList = Array.isArray(remote) ? remote : [];
+  const requestsByEmail = new Map();
+
+  [...all, ...remoteList].forEach((item) => {
+    const normalized = normalizeRequestEntry(item);
+    if (!normalized) return;
+    const existing = requestsByEmail.get(normalized.email);
+    if (!existing) {
+      requestsByEmail.set(normalized.email, normalized);
+      return;
+    }
+
+    const existingTime = parseTimestamp(existing.updatedAt || existing.createdAt);
+    const incomingTime = parseTimestamp(normalized.updatedAt || normalized.createdAt);
+    if (incomingTime > existingTime) {
+      requestsByEmail.set(normalized.email, normalized);
+    } else if (incomingTime === existingTime) {
+      if (existing.status === 'pending' && normalized.status !== 'pending') {
+        requestsByEmail.set(normalized.email, normalized);
+      }
+    }
+  });
+
+  return Array.from(requestsByEmail.values()).sort((a, b) => parseTimestamp(b.updatedAt || b.createdAt) - parseTimestamp(a.updatedAt || a.createdAt));
+}
+
 function writeLocal(list, notify = true) {
   if (typeof window === "undefined") return false;
   try {
@@ -48,11 +97,21 @@ export async function readRequests() {
   try {
     const remote = await readSharedJsonFile("app-data/access-requests.json");
     if (Array.isArray(remote)) {
-      if (JSON.stringify(remote) !== JSON.stringify(local)) {
-        writeLocal(remote, false);
-        dispatchRequestUpdateEvent(remote);
+      const merged = mergeRequests(local, remote);
+      if (JSON.stringify(merged) !== JSON.stringify(local)) {
+        writeLocal(merged, false);
       }
-      return remote;
+      if (JSON.stringify(merged) !== JSON.stringify(remote)) {
+        try {
+          await writeSharedJsonFile("app-data/access-requests.json", merged);
+        } catch (e) {
+          // ignore remote refresh failures
+        }
+      }
+      if (JSON.stringify(merged) !== JSON.stringify(local)) {
+        dispatchRequestUpdateEvent(merged);
+      }
+      return merged;
     }
   } catch (e) {
     // ignore remote failure and fall back to local cache
@@ -65,23 +124,29 @@ export function readCachedRequests() {
 }
 
 export async function writeRequests(list) {
-  writeLocal(list);
+  const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
+  writeLocal(normalized);
   try {
-    await writeSharedJsonFile("app-data/access-requests.json", list);
+    await writeSharedJsonFile("app-data/access-requests.json", normalized);
   } catch (e) {
     console.error('Failed to persist access requests to shared storage', e);
   }
-  return list;
+  return normalized;
 }
 
 export async function addRequest(entry) {
   const list = await readRequests();
-  const hasPending = list.some((item) => item.email === entry.email && item.status === 'pending');
+  const normalizedEntry = normalizeRequestEntry({
+    ...entry,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const hasPending = list.some((item) => item.email === normalizedEntry.email && item.status === 'pending');
   if (hasPending) {
     throw new Error('A pending request already exists for this email.');
   }
 
-  const next = [entry, ...list.filter((item) => item.email !== entry.email)];
+  const next = [normalizedEntry, ...list.filter((item) => item.email !== normalizedEntry.email)];
   await writeRequests(next);
   return next;
 }
@@ -99,7 +164,7 @@ export async function clearAllRequests() {
 
 export async function updateRequestStatus(email, status) {
   const list = await readRequests();
-  const next = list.map((r) => (r.email === email ? { ...r, status } : r));
+  const next = list.map((r) => (r.email === email ? { ...normalizeRequestEntry(r), status, updatedAt: new Date().toISOString() } : normalizeRequestEntry(r)));
   await writeRequests(next);
   return next;
 }
