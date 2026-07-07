@@ -73,6 +73,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
 
   const OWNER_EMAIL = process.env.REACT_APP_OWNER_EMAIL || null;
   const PROFILE_STORAGE_KEY = 'kesco_user_profile_v1';
+  const showRequestAccess = !user;
   const PROFILE_SHARED_PATH = 'app-data/user-profiles.json';
 
   const readStoredProfile = useCallback((uid) => {
@@ -338,7 +339,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
           </button>
 
           <div className="ml-2 sm:ml-4 flex items-center gap-2 sm:gap-3">
-            {!user ? (
+            {showRequestAccess ? (
               <button
                 onClick={openRequestModal}
                 className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
@@ -360,9 +361,14 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                 <button
                   type="button"
                   onClick={() => setProfileModalOpen(true)}
-                  className="border border-gray-200 bg-white px-2 py-1 rounded text-xs text-[#1f498c]"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-[#1f498c] shadow-sm transition hover:bg-gray-200"
+                  aria-label="Profile"
+                  title="Profile"
                 >
-                  Profile
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="3.5" />
+                    <path d="M5 19c1.2-3.2 3.8-4.8 7-4.8s5.8 1.6 7 4.8" />
+                  </svg>
                 </button>
                 {/* show pending badge if user has pending request */}
                 {requests.find(r => r.email === user.email && r.status === 'pending') ? (

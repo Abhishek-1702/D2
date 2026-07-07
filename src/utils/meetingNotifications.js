@@ -16,13 +16,17 @@ export function getAuthorityOptions() {
 }
 
 export function buildMeetingNotificationText(meeting, recipient) {
+  const recipientText = Array.isArray(recipient)
+    ? recipient.filter(Boolean).join(", ")
+    : (recipient || "selected official");
+
   const lines = [
     `Meeting notification: ${meeting.authorityName || meeting.title || "Scheduled meeting"}`,
     `Date: ${meeting.date || "TBD"}`,
     `Time: ${meeting.time || "TBD"}`,
     `Venue: ${meeting.venue || "TBD"}`,
     `Link: ${meeting.meetingLink || "Not provided"}`,
-    `Recipient: ${recipient || "selected official"}`,
+    `Recipient: ${recipientText}`,
   ];
   return lines.join("\n");
 }

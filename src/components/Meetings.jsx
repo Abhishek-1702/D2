@@ -71,7 +71,7 @@ export default function Meetings() {
     meetingTime: "",
     venue: "",
     meetingLink: "",
-    recipient: "",
+    recipients: [],
   });
   const [notificationStatus, setNotificationStatus] = useState("");
   const [sendingNotification, setSendingNotification] = useState(false);
@@ -278,6 +278,7 @@ export default function Meetings() {
       return;
     }
 
+    const recipientList = Array.isArray(scheduleForm.recipients) ? scheduleForm.recipients.filter(Boolean) : [];
     const nextSchedule = {
       id: `${Date.now()}`,
       authorityName: scheduleForm.authorityName.trim(),
@@ -285,7 +286,8 @@ export default function Meetings() {
       time: scheduleForm.meetingTime,
       venue: scheduleForm.venue.trim(),
       meetingLink: scheduleForm.meetingLink.trim(),
-      recipient: scheduleForm.recipient,
+      recipients: recipientList,
+      recipient: recipientList.join(", "),
       createdAt: new Date().toISOString(),
       createdBy: { uid: user.uid, email: user.email },
     };
@@ -293,7 +295,7 @@ export default function Meetings() {
     const nextList = [nextSchedule, ...scheduledMeetings];
     setScheduledMeetings(nextList);
     writeStoredScheduledMeetings(nextList);
-    setScheduleForm({ authorityName: "", meetingDate: "", meetingTime: "", venue: "", meetingLink: "", recipient: "" });
+    setScheduleForm({ authorityName: "", meetingDate: "", meetingTime: "", venue: "", meetingLink: "", recipients: [] });
     setScheduleModalOpen(false);
     setNotificationStatus("Meeting saved locally and shared in this browser.");
   };
@@ -304,8 +306,9 @@ export default function Meetings() {
     setNotificationStatus("");
     try {
       const permission = await requestBrowserNotificationPermission();
-      const browserSent = sendBrowserMeetingNotification(meeting, meeting.recipient || "selected official");
-      const mailLink = buildMeetingEmailLink(meeting, meeting.recipient || "selected official");
+      const recipientList = Array.isArray(meeting.recipients) && meeting.recipients.length > 0 ? meeting.recipients : (meeting.recipient ? meeting.recipient.split(",") : []);
+      const browserSent = sendBrowserMeetingNotification(meeting, recipientList);
+      const mailLink = buildMeetingEmailLink(meeting, recipientList);
       if (browserSent || mailLink) {
         setNotificationStatus(`Notification prepared${permission === "granted" ? " and sent to browser" : ""}${mailLink ? " and email draft opened" : ""}.`);
         if (mailLink) {
@@ -541,7 +544,7 @@ export default function Meetings() {
                       <p className="text-xs text-gray-500">{item.date} • {item.time || "Time TBD"}</p>
                       <p className="mt-1 text-sm text-gray-600">Venue: {item.venue || "TBD"}</p>
                       {item.meetingLink ? <a href={item.meetingLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm text-blue-600">Open meeting link</a> : null}
-                      {item.recipient ? <p className="mt-1 text-xs text-gray-500">Recipient: {item.recipient}</p> : null}
+                      {item.recipient ? <p className="mt-1 text-xs text-gray-500">Recipients: {item.recipient}</p> : null}
                     </div>
                     {user ? (
                       <button
@@ -685,13 +688,18 @@ export default function Meetings() {
                 <input value={scheduleForm.meetingLink} onChange={(event) => setScheduleForm({ ...scheduleForm, meetingLink: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="https://..." />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Notify official</label>
-                <select value={scheduleForm.recipient} onChange={(event) => setScheduleForm({ ...scheduleForm, recipient: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                  <option value="">Select from hierarchy</option>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Notify officials</label>
+                <select
+                  multiple
+                  value={scheduleForm.recipients}
+                  onChange={(event) => setScheduleForm({ ...scheduleForm, recipients: Array.from(event.target.selectedOptions, (option) => option.value) })}
+                  className="h-40 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                >
                   {authorityOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+                <p className="mt-2 text-xs text-gray-500">Hold Ctrl/Cmd to select more than one official.</p>
               </div>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setScheduleModalOpen(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Cancel</button>
