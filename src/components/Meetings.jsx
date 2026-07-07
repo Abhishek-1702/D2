@@ -747,8 +747,9 @@ export default function Meetings() {
                         type="checkbox"
                         checked={scheduleForm.recipients.includes(option.value)}
                         onChange={() => handleToggleRecipient(option.value)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span>{option.label}</span>
+                      <span className="text-sm text-gray-700">{option.label}</span>
                     </label>
                   ))}
                 </div>

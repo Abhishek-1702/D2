@@ -10,6 +10,7 @@ export default function AccessRequests({ onBack }) {
   const OWNER_EMAIL = process.env.REACT_APP_OWNER_EMAIL || null;
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [processingRequest, setProcessingRequest] = useState(null);
 
   const refresh = async () => {
     try {
@@ -69,7 +70,8 @@ export default function AccessRequests({ onBack }) {
 
   const handleApprove = async (email) => {
     const request = requests.find((r) => r.email === email);
-    if (!request) return;
+    if (!request || processingRequest) return;
+    setProcessingRequest(email);
 
     const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1`;
     const requestedDesignation = (request.designation || request.rawDesignation || "").trim();
@@ -78,47 +80,61 @@ export default function AccessRequests({ onBack }) {
     }
     let firebaseUserCreated = false;
 
-    if (isFirebaseConfigured) {
-      try {
-        await createFirebaseUser(request.email, tempPassword);
-        firebaseUserCreated = true;
-      } catch (error) {
-        if (error?.code === 'EMAIL_EXISTS' || error?.code === 'auth/email-already-in-use') {
-          console.warn('Firebase user already exists for approved request', request.email);
+    try {
+      if (isFirebaseConfigured) {
+        try {
+          await createFirebaseUser(request.email, tempPassword);
           firebaseUserCreated = true;
-        } else {
-          console.error('Failed to create Firebase user for access request', error);
-          // eslint-disable-next-line no-alert
-          alert(`Unable to create Firebase user: ${error?.message || error}`);
-          return;
+        } catch (error) {
+          if (error?.code === 'EMAIL_EXISTS' || error?.code === 'auth/email-already-in-use') {
+            console.warn('Firebase user already exists for approved request', request.email);
+            firebaseUserCreated = true;
+          } else {
+            throw error;
+          }
         }
       }
+
+      await updateRequestStatus(email, "approved");
+      setRequests((prev) => prev.map((r) => (r.email === email ? { ...r, status: 'approved' } : r)));
+      await saveUserProfileMetadata(email, {
+        mustChangePassword: true,
+        tempPasswordCreatedAt: new Date().toISOString(),
+        displayName: request.name,
+        firebaseUserCreated,
+      });
+
+      const subject = "Access granted to KESCO dashboard";
+      const body = `Hello ${request.name},\n\nYour access request has been approved. Use the following temporary password to sign in:\n\nEmail: ${request.email}\nPassword: ${tempPassword}\n\nAfter signing in, you will be prompted to change your password.\n\nIf you did not request access, please ignore this message.`;
+      window.location.href = buildEmailLink(request.email, subject, body);
+    } catch (error) {
+      console.error('Approve failed', error);
+      // eslint-disable-next-line no-alert
+      alert(`Unable to approve request: ${error?.message || error}`);
+    } finally {
+      setProcessingRequest(null);
     }
-
-    await updateRequestStatus(email, "approved");
-    await saveUserProfileMetadata(email, {
-      mustChangePassword: true,
-      tempPasswordCreatedAt: new Date().toISOString(),
-      displayName: request.name,
-      firebaseUserCreated,
-    });
-    await refresh();
-
-    const subject = "Access granted to KESCO dashboard";
-    const body = `Hello ${request.name},\n\nYour access request has been approved. Use the following temporary password to sign in:\n\nEmail: ${request.email}\nPassword: ${tempPassword}\n\nAfter signing in, you will be prompted to change your password.\n\nIf you did not request access, please ignore this message.`;
-    window.location.href = buildEmailLink(request.email, subject, body);
   };
 
   const handleReject = async (email) => {
     const request = requests.find((r) => r.email === email);
-    if (!request) return;
+    if (!request || processingRequest) return;
+    setProcessingRequest(email);
 
-    await updateRequestStatus(email, "rejected");
-    await refresh();
+    try {
+      await updateRequestStatus(email, "rejected");
+      setRequests((prev) => prev.map((r) => (r.email === email ? { ...r, status: 'rejected' } : r)));
 
-    const subject = "Access request declined";
-    const body = `Hello ${request.name},\n\nYour request for access has been declined. If you believe this is a mistake, please contact the admin.\n\nRegards,\nKESCO Portal`;
-    window.location.href = buildEmailLink(request.email, subject, body);
+      const subject = "Access request declined";
+      const body = `Hello ${request.name},\n\nYour request for access has been declined. If you believe this is a mistake, please contact the admin.\n\nRegards,\nKESCO Portal`;
+      window.location.href = buildEmailLink(request.email, subject, body);
+    } catch (error) {
+      console.error('Reject failed', error);
+      // eslint-disable-next-line no-alert
+      alert(`Unable to reject request: ${error?.message || error}`);
+    } finally {
+      setProcessingRequest(null);
+    }
   };
 
   if (!user || !OWNER_EMAIL || user.email !== OWNER_EMAIL) {
@@ -132,7 +148,7 @@ export default function AccessRequests({ onBack }) {
   const handleClearAll = async () => {
     if (!window.confirm('Clear all access requests?')) return;
     await clearAllRequests();
-    await refresh();
+    setRequests([]);
   };
 
   return (
@@ -166,12 +182,24 @@ export default function AccessRequests({ onBack }) {
                 <div className="text-xs mt-1">Status: <span className="font-medium">{r.status}</span></div>
               </div>
               <div className="flex gap-2">
-                {r.status === 'pending' && (
+                {r.status === 'pending' ? (
                   <>
-                    <button onClick={() => handleApprove(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm btn-press">Grant</button>
-                    <button onClick={() => handleReject(r.email)} className="px-3 py-1 rounded bg-gray-100 text-sm btn-press">Reject</button>
+                    <button
+                      onClick={() => handleApprove(r.email)}
+                      disabled={Boolean(processingRequest)}
+                      className={`px-3 py-1 rounded text-sm font-semibold btn-press ${processingRequest ? 'cursor-not-allowed opacity-60' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                    >
+                      {processingRequest === r.email ? 'Approving...' : 'Grant'}
+                    </button>
+                    <button
+                      onClick={() => handleReject(r.email)}
+                      disabled={Boolean(processingRequest)}
+                      className={`px-3 py-1 rounded text-sm btn-press ${processingRequest ? 'cursor-not-allowed opacity-60 bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                      {processingRequest === r.email ? 'Rejecting...' : 'Reject'}
+                    </button>
                   </>
-                )}
+                ) : null}
               </div>
             </div>
           ))
