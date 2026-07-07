@@ -173,15 +173,25 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       }
     };
 
-    const handleRequestUpdate = () => {
+    const handleRequestUpdate = (event) => {
+      if (event?.detail?.requests) {
+        setRequests(event.detail.requests);
+        return;
+      }
+      if (event?.type === 'storage') {
+        setRequests(readCachedRequests());
+        return;
+      }
       load();
     };
 
     load();
+    const interval = setInterval(load, 10000);
     window.addEventListener('storage', handleRequestUpdate);
     window.addEventListener('kesco-access-requests-updated', handleRequestUpdate);
     return () => {
       mounted = false;
+      clearInterval(interval);
       window.removeEventListener('storage', handleRequestUpdate);
       window.removeEventListener('kesco-access-requests-updated', handleRequestUpdate);
     };

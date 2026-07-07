@@ -39,14 +39,25 @@ export default function AccessRequests({ onBack }) {
   }, []);
 
   useEffect(() => {
-    const handleRefresh = () => {
+    const handleRefresh = (event) => {
+      if (event?.detail?.requests) {
+        setRequests(event.detail.requests);
+        return;
+      }
+      if (event?.type === 'storage') {
+        const cached = readCachedRequests();
+        setRequests(cached);
+        return;
+      }
       refresh();
     };
 
     window.addEventListener('focus', handleRefresh);
     window.addEventListener('storage', handleRefresh);
     window.addEventListener('kesco-access-requests-updated', handleRefresh);
+    const interval = setInterval(refresh, 10000);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('focus', handleRefresh);
       window.removeEventListener('storage', handleRefresh);
       window.removeEventListener('kesco-access-requests-updated', handleRefresh);

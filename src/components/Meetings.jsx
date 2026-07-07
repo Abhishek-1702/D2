@@ -9,6 +9,7 @@ import { buildMeetingEmailLink, buildMeetingNotificationText, getAuthorityOption
 
 const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
 const SCHEDULED_MEETINGS_STORAGE_KEY = "kesco_scheduled_meetings_v1";
+const SCHEDULED_MEETINGS_SHARED_PATH = "app-data/scheduled-meetings.json";
 
 function readStoredMeetings() {
   if (typeof window === "undefined") return [];
@@ -47,6 +48,26 @@ function writeStoredScheduledMeetings(list) {
     window.localStorage.setItem(SCHEDULED_MEETINGS_STORAGE_KEY, JSON.stringify(list));
   } catch (error) {
     console.error("Failed to write scheduled meetings", error);
+  }
+}
+
+async function readSharedScheduledMeetings() {
+  try {
+    const shared = await readSharedJsonFile(SCHEDULED_MEETINGS_SHARED_PATH);
+    return Array.isArray(shared) ? shared : null;
+  } catch (error) {
+    console.error("Failed to read shared scheduled meetings", error);
+    return null;
+  }
+}
+
+async function writeSharedScheduledMeetings(list) {
+  try {
+    await writeSharedJsonFile(SCHEDULED_MEETINGS_SHARED_PATH, list);
+    return true;
+  } catch (error) {
+    console.error("Failed to write shared scheduled meetings", error);
+    return false;
   }
 }
 
@@ -93,15 +114,56 @@ export default function Meetings() {
     }
   };
 
+  const persistScheduledMeetingsState = async (nextList) => {
+    try {
+      writeStoredScheduledMeetings(nextList);
+      await writeSharedScheduledMeetings(nextList);
+    } catch (error) {
+      console.error('Failed to sync scheduled meetings state', error);
+    }
+  };
+
+  const refreshScheduledMeetings = async () => {
+    try {
+      const shared = await readSharedScheduledMeetings();
+      if (Array.isArray(shared)) {
+        setScheduledMeetings(shared);
+        writeStoredScheduledMeetings(shared);
+        setNotificationStatus('Scheduled meetings refreshed from shared storage.');
+      } else {
+        setNotificationStatus('No shared scheduled meetings were found.');
+      }
+    } catch (error) {
+      console.error('Failed to refresh scheduled meetings', error);
+      setNotificationStatus('Unable to refresh scheduled meetings.');
+    }
+  };
+
   useEffect(() => {
     setDate("");
-    setScheduledMeetings(readStoredScheduledMeetings());
+    const localSchedules = readStoredScheduledMeetings();
+    if (localSchedules.length) {
+      setScheduledMeetings(localSchedules);
+    }
+
+    const loadSharedSchedule = async () => {
+      const shared = await readSharedScheduledMeetings();
+      if (Array.isArray(shared)) {
+        setScheduledMeetings(shared);
+        writeStoredScheduledMeetings(shared);
+      }
+    };
+
     const loadEmailConfig = async () => {
       const config = await readNotificationEmailConfig();
       setNotificationEmailConfig(config || {});
       setNotificationEmailDrafts(config || {});
     };
+
     loadEmailConfig();
+    loadSharedSchedule();
+    const interval = setInterval(loadSharedSchedule, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -153,6 +215,8 @@ export default function Meetings() {
     };
 
     loadMeetingsState();
+    const interval = setInterval(loadMeetingsState, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddMeeting = async (e) => {
@@ -283,11 +347,11 @@ export default function Meetings() {
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
-  const handleDeleteScheduledMeeting = (meetingId) => {
+  const handleDeleteScheduledMeeting = async (meetingId) => {
     if (!canManageDocuments) return;
     const nextList = scheduledMeetings.filter((item) => item.id !== meetingId);
     setScheduledMeetings(nextList);
-    writeStoredScheduledMeetings(nextList);
+    await persistScheduledMeetingsState(nextList);
     setNotificationStatus("Scheduled meeting removed.");
   };
 
@@ -314,10 +378,10 @@ export default function Meetings() {
 
     const nextList = [nextSchedule, ...scheduledMeetings];
     setScheduledMeetings(nextList);
-    writeStoredScheduledMeetings(nextList);
+    await persistScheduledMeetingsState(nextList);
     setScheduleForm({ authorityName: "", meetingDate: "", meetingTime: "", venue: "", meetingLink: "", recipients: [] });
     setScheduleModalOpen(false);
-    setNotificationStatus("Meeting saved locally and shared in this browser.");
+    setNotificationStatus("Meeting saved and synced across devices.");
   };
 
   const handleSendNotification = async (meeting) => {
@@ -409,20 +473,29 @@ export default function Meetings() {
       </div>
 
       <div className="px-8 py-6">
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Meeting records</h2>
             <p className="text-sm text-gray-500">Save meeting details and schedule follow-up notifications.</p>
           </div>
-          {user ? (
+          <div className="flex flex-wrap gap-3">
+            {user ? (
+              <button
+                type="button"
+                onClick={() => setScheduleModalOpen(true)}
+                className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
+              >
+                Schedule Meeting
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setScheduleModalOpen(true)}
-              className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
+              onClick={refreshScheduledMeetings}
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
-              Schedule Meeting
+              Refresh scheduled meetings
             </button>
-          ) : null}
+          </div>
         </div>
 
         <form onSubmit={handleAddMeeting} className="space-y-4 max-w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

@@ -1,6 +1,7 @@
 import { readSharedJsonFile, writeSharedJsonFile } from "./documentPersistence";
 
 const STORAGE_KEY = "kesco_access_requests_v1";
+const SYNC_KEY = "kesco_access_requests_sync_v1";
 
 function readLocal() {
   if (typeof window === "undefined") return [];
@@ -18,10 +19,20 @@ function dispatchRequestUpdateEvent(list) {
   window.dispatchEvent(new CustomEvent("kesco-access-requests-updated", { detail: { requests: list } }));
 }
 
+function writeSyncKey() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SYNC_KEY, String(Date.now()));
+  } catch (e) {
+    console.error("Failed to update access request sync key", e);
+  }
+}
+
 function writeLocal(list, notify = true) {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    writeSyncKey();
     if (notify) {
       dispatchRequestUpdateEvent(list);
     }
@@ -33,16 +44,20 @@ function writeLocal(list, notify = true) {
 }
 
 export async function readRequests() {
+  const local = readLocal();
   try {
     const remote = await readSharedJsonFile("app-data/access-requests.json");
     if (Array.isArray(remote)) {
-      writeLocal(remote, false);
+      if (JSON.stringify(remote) !== JSON.stringify(local)) {
+        writeLocal(remote, false);
+        dispatchRequestUpdateEvent(remote);
+      }
       return remote;
     }
   } catch (e) {
     // ignore remote failure and fall back to local cache
   }
-  return readLocal();
+  return local;
 }
 
 export function readCachedRequests() {
