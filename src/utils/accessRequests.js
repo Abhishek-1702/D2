@@ -38,8 +38,8 @@ function normalizeRequestEntry(entry) {
   if (!entry || typeof entry !== 'object') return null;
   const email = String(entry.email || '').trim().toLowerCase();
   if (!email) return null;
-  const createdAt = entry.createdAt || new Date().toISOString();
-  const updatedAt = entry.updatedAt || createdAt;
+  const createdAt = entry.createdAt || entry.createdat || new Date().toISOString();
+  const updatedAt = entry.updatedAt || entry.updatedat || createdAt;
   return {
     ...entry,
     id: entry.id || `${Date.now()}-${email.replace(/[^a-z0-9]/g, '-')}`,
@@ -102,7 +102,7 @@ async function readRemoteRequestsFromSupabase() {
     const { data, error } = await supabase
       .from("access_requests")
       .select("*")
-      .order("updatedAt", { ascending: false });
+      .order("updatedat", { ascending: false });
 
     if (error) {
       console.error("Failed to read access requests from Supabase", error);
@@ -145,6 +145,14 @@ async function readRemoteRequests() {
     return dbResult;
   }
 
+  // If Supabase is configured but the read failed, avoid falling back to the
+  // potentially stale shared JSON file. This prevents old requests from being
+  // re-introduced when remote DB has intermittent errors.
+  if (isSupabaseConfigured) {
+    console.warn('Supabase is configured but remote read failed; skipping shared file fallback to avoid stale data.');
+    return null;
+  }
+
   try {
     const remote = await readSharedJsonFile("app-data/access-requests.json");
     if (!Array.isArray(remote)) {
@@ -152,7 +160,7 @@ async function readRemoteRequests() {
     }
     return remote.map(normalizeRequestEntry).filter(Boolean);
   } catch (e) {
-    console.error('Failed to read remote access requests', e);
+    console.error('Failed to read remote access requests from shared file', e);
     return null;
   }
 }
@@ -225,10 +233,10 @@ export async function addRequest(entry) {
 }
 
 export async function clearAllRequests() {
-  const cleared = [];
-  writeLocal(cleared);
-  await writeRemoteRequests(cleared);
-  return cleared;
+  const list = await readRequests();
+  const next = list.filter((r) => r.status !== 'rejected');
+  await writeRequests(next);
+  return next;
 }
 
 export async function updateRequestStatus(email, status) {
@@ -252,3 +260,22 @@ const accessRequestsAPI = {
 };
 
 export default accessRequestsAPI;
+
+export async function forceRemoteSync() {
+  try {
+    const remote = await readRemoteRequestsFromSupabase();
+    if (remote === null) {
+      console.warn('forceRemoteSync: remote read returned null');
+      return null;
+    }
+
+    const local = readLocal();
+    const merged = mergeRequests(local, remote);
+    await writeRequests(merged);
+    console.debug('forceRemoteSync: merged and wrote', merged.length, 'records');
+    return merged;
+  } catch (error) {
+    console.error('forceRemoteSync failed', error);
+    return null;
+  }
+}

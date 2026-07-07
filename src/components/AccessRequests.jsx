@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests } from "../utils/accessRequests";
+import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests, forceRemoteSync } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
@@ -191,7 +191,29 @@ export default function AccessRequests({ onBack }) {
   const handleClearAll = async () => {
     if (!window.confirm('Clear all access requests?')) return;
     await clearAllRequests();
-    setRequests([]);
+    await refresh();
+  };
+
+  const handleSyncNow = async () => {
+    if (!window.confirm('Force sync now from remote?')) return;
+    setLoading(true);
+    try {
+      const result = await forceRemoteSync();
+      if (result && Array.isArray(result)) {
+        setRequests(result);
+        // eslint-disable-next-line no-alert
+        alert(`Synced ${result.length} requests from remote.`);
+      } else {
+        // eslint-disable-next-line no-alert
+        alert('Sync failed or returned no data. Check console for details.');
+      }
+    } catch (e) {
+      console.error('Sync now failed', e);
+      // eslint-disable-next-line no-alert
+      alert(`Sync failed: ${e?.message || e}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -201,8 +223,9 @@ export default function AccessRequests({ onBack }) {
           <h1 className="text-2xl font-bold">Access requests</h1>
           <p className="text-sm text-gray-500">Manage pending requests and grant or reject access from the admin portal.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
           <button onClick={refresh} className="px-3 py-2 rounded border text-sm btn-press">Refresh</button>
+          <button onClick={handleSyncNow} className="px-3 py-2 rounded border bg-blue-50 text-sm text-blue-700 btn-press">Sync now</button>
           <button onClick={handleClearAll} className="px-3 py-2 rounded border bg-red-50 text-sm text-red-700 btn-press">Clear all</button>
           {onBack ? (
             <button onClick={onBack} className="px-3 py-2 rounded border text-sm btn-press">Back</button>
@@ -213,10 +236,14 @@ export default function AccessRequests({ onBack }) {
       <div className="space-y-3">
         {loading ? (
           <div className="text-sm text-gray-500">Loading…</div>
-        ) : requests.length === 0 ? (
-          <div className="text-sm text-gray-500">No access requests.</div>
         ) : (
-          requests.map((r) => (
+          <>
+            {requests.length === 0 ? (
+              <div className="text-sm text-gray-500">No access requests.</div>
+            ) : null}
+
+            <div className="space-y-3">
+              {requests.filter((r) => r.status === 'pending').map((r) => (
             <div key={r.id} className="rounded-lg border p-3 bg-white flex items-center justify-between">
               <div>
                 <div className="font-semibold">{r.name} — {r.email}</div>
@@ -245,7 +272,25 @@ export default function AccessRequests({ onBack }) {
                 ) : null}
               </div>
             </div>
-          ))
+              ))}
+            </div>
+
+            {requests.some((r) => r.status === 'approved') ? (
+              <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <div className="mb-3 text-sm font-semibold text-blue-900">Approved requests</div>
+                <div className="space-y-3">
+                  {requests.filter((r) => r.status === 'approved').map((r) => (
+                    <div key={r.id} className="rounded-lg border border-blue-100 bg-white p-3">
+                      <div className="font-semibold text-blue-700">{r.name} — {r.email}</div>
+                      <div className="text-xs text-gray-500">{r.designation} • {r.office} • {r.mobile}</div>
+                      <div className="text-xs text-gray-400 mt-1">Requested: {new Date(r.createdAt).toLocaleString()}</div>
+                      <div className="text-xs mt-1">Status: <span className="font-medium text-blue-700">{r.status}</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
