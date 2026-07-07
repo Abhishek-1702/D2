@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests, forceRemoteSync } from "../utils/accessRequests";
+import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests, forceRemoteSync, deleteRequest } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
@@ -216,6 +216,21 @@ export default function AccessRequests({ onBack }) {
     }
   };
 
+  const handleDeleteRequest = async (identifier) => {
+    if (!window.confirm('Remove this request permanently?')) return;
+    setLoading(true);
+    try {
+      await deleteRequest(identifier);
+      await refresh();
+    } catch (e) {
+      console.error('Delete request failed', e);
+      // eslint-disable-next-line no-alert
+      alert(`Unable to delete request: ${e?.message || e}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="px-8 py-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
@@ -285,6 +300,32 @@ export default function AccessRequests({ onBack }) {
                       <div className="text-xs text-gray-500">{r.designation} • {r.office} • {r.mobile}</div>
                       <div className="text-xs text-gray-400 mt-1">Requested: {new Date(r.createdAt).toLocaleString()}</div>
                       <div className="text-xs mt-1">Status: <span className="font-medium text-blue-700">{r.status}</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {requests.some((r) => r.status === 'rejected') ? (
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div className="mb-3 text-sm font-semibold text-red-900">Rejected requests</div>
+                <div className="space-y-3">
+                  {requests.filter((r) => r.status === 'rejected').map((r) => (
+                    <div key={r.id} className="rounded-lg border border-red-100 bg-white p-3 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-red-700">{r.name} — {r.email}</div>
+                        <div className="text-xs text-gray-500">{r.designation} • {r.office} • {r.mobile}</div>
+                        <div className="text-xs text-gray-400 mt-1">Requested: {new Date(r.createdAt).toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <button
+                          onClick={() => handleDeleteRequest(r.email)}
+                          className="text-red-500 px-2 py-1 rounded hover:bg-red-50"
+                          aria-label="Delete request"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

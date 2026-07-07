@@ -126,7 +126,21 @@ async function writeRemoteRequestsToSupabase(list) {
   const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
   console.debug("Writing access requests to Supabase", normalized.length, "records");
   try {
-    const { error } = await supabase.from("access_requests").upsert(normalized, { onConflict: "email" });
+    // Map fields to the Supabase table column names (lowercase) to avoid schema errors
+    const remoteRows = normalized.map((r) => ({
+      id: r.id,
+      name: r.name || null,
+      mobile: r.mobile || null,
+      email: r.email || null,
+      designation: r.designation || null,
+      office: r.office || null,
+      status: r.status || null,
+      createdat: r.createdAt || r.createdat || new Date().toISOString(),
+      updatedat: r.updatedAt || r.updatedat || r.createdAt || new Date().toISOString(),
+      rawdesignation: r.rawDesignation || r.rawdesignation || null,
+    }));
+
+    const { error } = await supabase.from("access_requests").upsert(remoteRows, { onConflict: "email" });
     if (error) {
       console.error("Failed to write access requests to Supabase", error);
       return null;
@@ -234,7 +248,16 @@ export async function addRequest(entry) {
 
 export async function clearAllRequests() {
   const list = await readRequests();
-  const next = list.filter((r) => r.status !== 'rejected');
+  // Remove only pending requests when clearing all from the UI.
+  // Rejected and approved records are preserved for manual review/deletion.
+  const next = list.filter((r) => r.status !== 'pending');
+  await writeRequests(next);
+  return next;
+}
+
+export async function deleteRequest(identifier) {
+  const list = await readRequests();
+  const next = list.filter((r) => (r.id !== identifier && r.email !== identifier));
   await writeRequests(next);
   return next;
 }
