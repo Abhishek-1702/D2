@@ -5,8 +5,10 @@ import { AUTHORITY_HIERARCHY, resolveMeetingDesignation } from "../data/officers
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
+import { buildMeetingEmailLink, buildMeetingNotificationText, getAuthorityOptions, requestBrowserNotificationPermission, sendBrowserMeetingNotification } from "../utils/meetingNotifications";
 
 const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
+const SCHEDULED_MEETINGS_STORAGE_KEY = "kesco_scheduled_meetings_v1";
 
 function readStoredMeetings() {
   if (typeof window === "undefined") return [];
@@ -28,6 +30,26 @@ function writeStoredMeetings(meetingsList) {
   }
 }
 
+function readStoredScheduledMeetings() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SCHEDULED_MEETINGS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (error) {
+    console.error("Failed to read scheduled meetings", error);
+    return [];
+  }
+}
+
+function writeStoredScheduledMeetings(list) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SCHEDULED_MEETINGS_STORAGE_KEY, JSON.stringify(list));
+  } catch (error) {
+    console.error("Failed to write scheduled meetings", error);
+  }
+}
+
 export default function Meetings() {
   const [meetings, setMeetings] = useState([]);
   const [meetingTitle, setMeetingTitle] = useState("");
@@ -41,8 +63,22 @@ export default function Meetings() {
 
   const [saving, setSaving] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [scheduledMeetings, setScheduledMeetings] = useState([]);
+  const [scheduleForm, setScheduleForm] = useState({
+    authorityName: "",
+    meetingDate: "",
+    meetingTime: "",
+    venue: "",
+    meetingLink: "",
+    recipient: "",
+  });
+  const [notificationStatus, setNotificationStatus] = useState("");
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [userProfile, setUserProfile] = useState({ name: "", designation: "" });
   const { user } = useAuth();
   const canManageDocuments = isAdminUser(user);
+  const authorityOptions = getAuthorityOptions();
 
   const persistMeetingsState = async (nextMeetings) => {
     try {
@@ -52,6 +88,42 @@ export default function Meetings() {
       console.error('Failed to sync meetings state', error);
     }
   };
+
+  useEffect(() => {
+    setDate("");
+    setScheduledMeetings(readStoredScheduledMeetings());
+  }, []);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setUserProfile({ name: "", designation: "" });
+      return;
+    }
+
+    const readProfile = async () => {
+      try {
+        const stored = typeof window !== "undefined" ? window.localStorage.getItem(`kesco_user_profile_v1:${user.uid}`) : null;
+        const storedProfile = stored ? JSON.parse(stored) : null;
+        const shared = await readSharedJsonFile("app-data/user-profiles.json");
+        const sharedProfile = shared?.[user.uid] || null;
+        const resolved = sharedProfile || storedProfile || {};
+        setUserProfile({
+          name: resolved.name || user.displayName || "",
+          designation: resolved.designation || "",
+        });
+      } catch (error) {
+        console.error("Failed to load profile for meetings", error);
+      }
+    };
+
+    readProfile();
+  }, [user]);
+
+  useEffect(() => {
+    if (userProfile.name && !meetingConductedBy.trim()) {
+      setMeetingConductedBy(userProfile.name);
+    }
+  }, [userProfile.name, meetingConductedBy]);
 
   useEffect(() => {
     const loadMeetingsState = async () => {
@@ -116,7 +188,9 @@ export default function Meetings() {
         time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
         designation: selectedDesignation,
         officer: personName.trim() || selectedDesignation,
-        conductedBy: meetingConductedBy.trim(),
+        conductedBy: meetingConductedBy.trim() || userProfile.name || "",
+        profileName: userProfile.name || "",
+        profileDesignation: userProfile.designation || "",
         note: note.trim(),
         createdAt: now.toISOString(),
         files: uploaded,
@@ -197,6 +271,57 @@ export default function Meetings() {
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
+  const handleScheduleMeeting = async (event) => {
+    event.preventDefault();
+    if (!user) {
+      alert("Sign in to schedule meetings.");
+      return;
+    }
+
+    const nextSchedule = {
+      id: `${Date.now()}`,
+      authorityName: scheduleForm.authorityName.trim(),
+      date: scheduleForm.meetingDate,
+      time: scheduleForm.meetingTime,
+      venue: scheduleForm.venue.trim(),
+      meetingLink: scheduleForm.meetingLink.trim(),
+      recipient: scheduleForm.recipient,
+      createdAt: new Date().toISOString(),
+      createdBy: { uid: user.uid, email: user.email },
+    };
+
+    const nextList = [nextSchedule, ...scheduledMeetings];
+    setScheduledMeetings(nextList);
+    writeStoredScheduledMeetings(nextList);
+    setScheduleForm({ authorityName: "", meetingDate: "", meetingTime: "", venue: "", meetingLink: "", recipient: "" });
+    setScheduleModalOpen(false);
+    setNotificationStatus("Meeting saved locally and shared in this browser.");
+  };
+
+  const handleSendNotification = async (meeting) => {
+    if (!meeting) return;
+    setSendingNotification(true);
+    setNotificationStatus("");
+    try {
+      const permission = await requestBrowserNotificationPermission();
+      const browserSent = sendBrowserMeetingNotification(meeting, meeting.recipient || "selected official");
+      const mailLink = buildMeetingEmailLink(meeting, meeting.recipient || "selected official");
+      if (browserSent || mailLink) {
+        setNotificationStatus(`Notification prepared${permission === "granted" ? " and sent to browser" : ""}${mailLink ? " and email draft opened" : ""}.`);
+        if (mailLink) {
+          window.location.href = mailLink;
+        }
+      } else {
+        setNotificationStatus("Browser notification permission denied and no mail setup was found.");
+      }
+    } catch (error) {
+      console.error("Failed to send meeting notification", error);
+      setNotificationStatus("Notification failed. Please try again.");
+    } finally {
+      setSendingNotification(false);
+    }
+  };
+
   const getNextOptions = (path) => {
     // Traverse the tree using the path segments. Start from the root list.
     if (path.length === 0) return AUTHORITY_HIERARCHY;
@@ -247,6 +372,22 @@ export default function Meetings() {
       </div>
 
       <div className="px-8 py-6">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Meeting records</h2>
+            <p className="text-sm text-gray-500">Save meeting details and schedule follow-up notifications.</p>
+          </div>
+          {user ? (
+            <button
+              type="button"
+              onClick={() => setScheduleModalOpen(true)}
+              className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
+            >
+              Schedule Meeting
+            </button>
+          ) : null}
+        </div>
+
         <form onSubmit={handleAddMeeting} className="space-y-4 max-w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="space-y-3">
             <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Authority position</label>
@@ -300,7 +441,7 @@ export default function Meetings() {
                   <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Date</label>
                   <input
                     type="date"
-                    value={date}
+                    value={date || ""}
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
                   />
@@ -382,7 +523,41 @@ export default function Meetings() {
           )}
         </form>
 
+        {notificationStatus ? (
+          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {notificationStatus}
+          </div>
+        ) : null}
+
         <div className="mt-8 space-y-4">
+          {scheduledMeetings.length > 0 ? (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500">Scheduled meetings</h3>
+              {scheduledMeetings.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{item.authorityName}</p>
+                      <p className="text-xs text-gray-500">{item.date} • {item.time || "Time TBD"}</p>
+                      <p className="mt-1 text-sm text-gray-600">Venue: {item.venue || "TBD"}</p>
+                      {item.meetingLink ? <a href={item.meetingLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm text-blue-600">Open meeting link</a> : null}
+                      {item.recipient ? <p className="mt-1 text-xs text-gray-500">Recipient: {item.recipient}</p> : null}
+                    </div>
+                    {user ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSendNotification(item)}
+                        disabled={sendingNotification}
+                        className="rounded-xl border border-[#1f498c] px-3 py-2 text-sm font-semibold text-[#1f498c] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {sendingNotification ? "Sending..." : "Send notification"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {meetings.length === 0 && (
             <div className="text-sm text-gray-400">No meetings recorded yet.</div>
           )}
@@ -418,8 +593,11 @@ export default function Meetings() {
 
                   <div className="mt-2 text-xs text-gray-500">{m.designation}</div>
                   <div className="mt-1 text-sm text-gray-700">{m.officer}</div>
-                  {m.conductedBy ? (
-                    <div className="mt-1 text-sm text-gray-600">Meeting conducted by: <span className="font-medium text-gray-800">{m.conductedBy}</span></div>
+                  {(m.profileName || m.conductedBy) ? (
+                    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/70 px-3 py-2 text-sm text-gray-700">
+                      <div className="font-semibold text-gray-900">{m.profileName || m.conductedBy}</div>
+                      {m.profileDesignation ? <div className="text-xs text-gray-500">{m.profileDesignation}</div> : null}
+                    </div>
                   ) : null}
                   {m.note ? <p className="mt-2 text-sm text-gray-600">{m.note}</p> : null}
 
@@ -468,6 +646,61 @@ export default function Meetings() {
           ))}
         </div>
       </div>
+
+      {scheduleModalOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4 py-8">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Schedule meeting</h3>
+                <p className="text-sm text-gray-500">Create a meeting schedule and notify the selected authority.</p>
+              </div>
+              <button type="button" onClick={() => setScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-700">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleScheduleMeeting} className="mt-5 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Authority name</label>
+                  <input value={scheduleForm.authorityName} onChange={(event) => setScheduleForm({ ...scheduleForm, authorityName: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="e.g. Managing Director" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Date</label>
+                  <input type="date" value={scheduleForm.meetingDate} onChange={(event) => setScheduleForm({ ...scheduleForm, meetingDate: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Time</label>
+                  <input type="time" value={scheduleForm.meetingTime} onChange={(event) => setScheduleForm({ ...scheduleForm, meetingTime: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Venue</label>
+                  <input value={scheduleForm.venue} onChange={(event) => setScheduleForm({ ...scheduleForm, venue: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="Conference room / online" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Meeting link</label>
+                <input value={scheduleForm.meetingLink} onChange={(event) => setScheduleForm({ ...scheduleForm, meetingLink: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="https://..." />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Notify official</label>
+                <select value={scheduleForm.recipient} onChange={(event) => setScheduleForm({ ...scheduleForm, recipient: event.target.value })} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                  <option value="">Select from hierarchy</option>
+                  {authorityOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setScheduleModalOpen(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Cancel</button>
+                <button type="submit" className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {previewFile && (() => {
         const preview = getPreviewSource(previewFile);

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Search, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { readRequests, addRequest, updateRequestStatus } from "../utils/accessRequests";
+import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 
 export default function UppclHeader({ activeTab, setActiveTab, language = 'en', setLanguage }) {
   const { user, signIn, signOut, authError, clearAuthError } = useAuth();
@@ -18,6 +19,10 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const [dateTime, setDateTime] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', designation: '' });
+  const [profile, setProfile] = useState({ name: '', designation: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
   const isHindi = language === 'hi';
 
   const openModal = useCallback(() => {
@@ -67,6 +72,57 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const openLink = (href) => window.open(href, '_blank', 'noreferrer');
 
   const OWNER_EMAIL = process.env.REACT_APP_OWNER_EMAIL || null;
+  const PROFILE_STORAGE_KEY = 'kesco_user_profile_v1';
+  const PROFILE_SHARED_PATH = 'app-data/user-profiles.json';
+
+  const readStoredProfile = useCallback((uid) => {
+    if (typeof window === 'undefined' || !uid) return null;
+    try {
+      const raw = window.localStorage.getItem(`${PROFILE_STORAGE_KEY}:${uid}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      console.error('Failed to read stored profile', error);
+      return null;
+    }
+  }, []);
+
+  const writeStoredProfile = useCallback((uid, value) => {
+    if (typeof window === 'undefined' || !uid) return;
+    try {
+      window.localStorage.setItem(`${PROFILE_STORAGE_KEY}:${uid}`, JSON.stringify(value));
+    } catch (error) {
+      console.error('Failed to write stored profile', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setProfile({ name: '', designation: '' });
+      setProfileForm({ name: '', designation: '' });
+      return;
+    }
+
+    let mounted = true;
+    const loadProfile = async () => {
+      const stored = readStoredProfile(user.uid);
+      const shared = await readSharedJsonFile(PROFILE_SHARED_PATH);
+      const sharedProfile = shared?.[user.uid] || null;
+      const resolved = sharedProfile || stored || {};
+
+      if (!mounted) return;
+      setProfile({
+        name: resolved.name || user.displayName || '',
+        designation: resolved.designation || '',
+      });
+      setProfileForm({
+        name: resolved.name || user.displayName || '',
+        designation: resolved.designation || '',
+      });
+    };
+
+    loadProfile();
+    return () => { mounted = false; };
+  }, [readStoredProfile, user]);
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +170,30 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     setRequests(items);
     // eslint-disable-next-line no-alert
     alert(`${emailToGrant} has been granted access.`);
+  };
+
+  const saveProfile = async (e) => {
+    e.preventDefault();
+    if (!user?.uid) return;
+    setProfileSaving(true);
+    try {
+      const nextProfile = {
+        name: profileForm.name.trim(),
+        designation: profileForm.designation.trim(),
+        email: user.email || '',
+      };
+      writeStoredProfile(user.uid, nextProfile);
+      const existingShared = await readSharedJsonFile(PROFILE_SHARED_PATH);
+      const nextShared = {
+        ...(existingShared || {}),
+        [user.uid]: nextProfile,
+      };
+      await writeSharedJsonFile(PROFILE_SHARED_PATH, nextShared);
+      setProfile(nextProfile);
+      setProfileModalOpen(false);
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -269,9 +349,21 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
 
             {user ? (
               <>
-                <span className="hidden sm:block text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded">
-                  {user.email}
-                </span>
+                <div className="hidden sm:flex flex-col items-end text-right">
+                  <span className="text-xs font-semibold text-green-800">
+                    {profile.name || user.email}
+                  </span>
+                  {profile.designation ? (
+                    <span className="text-[10px] text-green-700">{profile.designation}</span>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProfileModalOpen(true)}
+                  className="border border-gray-200 bg-white px-2 py-1 rounded text-xs text-[#1f498c]"
+                >
+                  Profile
+                </button>
                 {/* show pending badge if user has pending request */}
                 {requests.find(r => r.email === user.email && r.status === 'pending') ? (
                   <span className="text-xs ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800">Access request pending</span>
@@ -463,6 +555,47 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
         </div>,
         document.body
       )}
+      {profileModalOpen && createPortal(
+        <div onClick={() => setProfileModalOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#1f498c]">Profile</h2>
+                <p className="text-sm text-gray-500">Add your name and designation for the header display.</p>
+              </div>
+              <button onClick={() => setProfileModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+            <form onSubmit={saveProfile} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2">Name</label>
+                <input
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  className="w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2">Designation</label>
+                <input
+                  value={profileForm.designation}
+                  onChange={(e) => setProfileForm({ ...profileForm, designation: e.target.value })}
+                  className="w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
+                  placeholder="e.g. Assistant Engineer"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setProfileModalOpen(false)} className="px-3 py-2 rounded border">Cancel</button>
+                <button type="submit" disabled={profileSaving} className="px-4 py-2 rounded bg-[#1f498c] text-white disabled:opacity-60">
+                  {profileSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>, document.body
+      )}
+
       {requestModalOpen && createPortal(
         <div onClick={() => setRequestModalOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-lg bg-white p-6 shadow-2xl">
