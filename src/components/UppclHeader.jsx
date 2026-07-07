@@ -13,7 +13,6 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const { user, signIn, signOut, authError, clearAuthError } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [requests, setRequests] = useState([]);
   const [requestForm, setRequestForm] = useState({ name: "", mobile: "", email: "", designationOption: "", designationCustom: "", office: "" });
   const [requestError, setRequestError] = useState('');
@@ -172,10 +171,6 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     return () => { mounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (!adminModalOpen) return;
-    loadRequests();
-  }, [adminModalOpen, loadRequests]);
 
   const openRequestModal = () => {
     setRequestForm({ name: '', mobile: '', email: '', designationOption: '', designationCustom: '', office: '' });
@@ -196,37 +191,40 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       : customDesignation;
     const normalizedEmail = requestForm.email.trim().toLowerCase();
 
-    if (designationValue) {
-      const isKnown = authorityRequestOptions.some((option) => option.value === designationValue);
-      if (!isKnown) {
-        registerAuthorityOption(designationValue);
+    try {
+      if (designationValue) {
+        const isKnown = authorityRequestOptions.some((option) => option.value === designationValue);
+        if (!isKnown) {
+          registerAuthorityOption(designationValue);
+        }
       }
-    }
 
-    const existingRequest = await getRequestByEmail(normalizedEmail);
-    if (existingRequest && existingRequest.status !== 'rejected') {
-      setRequestError('Email already used');
-      return;
-    }
+      const existingRequest = await getRequestByEmail(normalizedEmail);
+      if (existingRequest && existingRequest.status === 'pending') {
+        setRequestError('An access request is already pending for this email.');
+        return;
+      }
 
-    const entry = {
-      id: Date.now(),
-      name,
-      mobile: requestForm.mobile.trim(),
-      email: normalizedEmail,
-      designation: designationValue,
-      rawDesignation: selectedOption || customDesignation,
-      office: requestForm.office.trim(),
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
-    await addRequest(entry);
-    const items = await readRequests();
-    setRequests(items);
-    setRequestModalOpen(false);
-    // show confirmation
-    // eslint-disable-next-line no-alert
-    alert('Access request submitted — pending approval.');
+      const entry = {
+        id: Date.now(),
+        name,
+        mobile: requestForm.mobile.trim(),
+        email: normalizedEmail,
+        designation: designationValue,
+        rawDesignation: selectedOption || customDesignation,
+        office: requestForm.office.trim(),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      await addRequest(entry);
+      await loadRequests();
+      setRequestModalOpen(false);
+      // show confirmation
+      // eslint-disable-next-line no-alert
+      alert('Access request submitted — pending approval.');
+    } catch (error) {
+      setRequestError(error?.message || 'Unable to submit request.');
+    }
   };
 
   const clearRequests = async () => {
@@ -394,8 +392,8 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               {user && OWNER_EMAIL && user.email === OWNER_EMAIL ? (
                 <button
                   type="button"
-                  onClick={() => { setAdminModalOpen(true); setActiveTab('access-requests'); }}
-                  className="rounded-full border border-white/40 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-white/20"
+                  onClick={() => setActiveTab('access-requests')}
+                  className="rounded-full border border-white/40 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-white/20 btn-press"
                 >
                   Access requests
                 </button>
@@ -548,7 +546,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                   <button
                     type="button"
                     onClick={openRequestModal}
-                    className="rounded border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-[#1f498c] transition hover:bg-gray-50"
+                    className="rounded border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-[#1f498c] transition hover:bg-gray-50 btn-press"
                   >
                     Request access
                   </button>
@@ -888,35 +886,6 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
         </div>, document.body
       )}
 
-      {adminModalOpen && createPortal(
-        <div onClick={() => setAdminModalOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-[#1f498c]">Access requests</h2>
-                <button onClick={clearRequests} className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Clear all</button>
-              </div>
-              <button onClick={() => setAdminModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
-            </div>
-            <div className="space-y-3 max-h-[60vh] overflow-auto">
-              {requests.filter(r=>r.status==='pending').length === 0 ? (
-                <div className="text-sm text-gray-500">No pending requests.</div>
-              ) : requests.filter(r=>r.status==='pending').map((r)=> (
-                <div key={r.id} className="p-3 border rounded flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold">{r.name} — {r.email}</div>
-                    <div className="text-xs text-gray-500">{r.designation} • {r.office} • {r.mobile}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={()=>grantRequest(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95">Grant access</button>
-                    <button onClick={()=>updateRequestStatus(r.email,'rejected').then(()=>readRequests().then(setRequests))} className="px-3 py-1 rounded bg-gray-100 text-sm cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95">Reject</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>, document.body
-      )}
     </>
   );
 }

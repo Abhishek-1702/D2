@@ -2,6 +2,36 @@ import { isSupabaseConfigured, supabase } from "../supabase";
 
 const STORAGE_KEY = "kesco_section_documents_v1";
 
+function normalizeSectionDocument(document, sectionType, sectionId) {
+  if (!document || typeof document !== "object") return document;
+  return {
+    ...document,
+    sectionType: sectionType || document.sectionType || null,
+    sectionId: sectionId || document.sectionId || null,
+  };
+}
+
+function matchesSectionScope(document, sectionType, sectionId) {
+  if (!document || typeof document !== "object") return false;
+
+  const docSectionType = document.sectionType || document.section || null;
+  const docSectionId = document.sectionId ?? document.section_id ?? document.scopeId ?? null;
+
+  // If a sectionType is requested, the document must declare a matching sectionType.
+  if (sectionType) {
+    if (!docSectionType) return false;
+    if (docSectionType !== sectionType) return false;
+  }
+
+  // If a sectionId is requested, the document must declare a matching sectionId.
+  if (sectionId != null) {
+    if (docSectionId == null) return false;
+    if (String(docSectionId) !== String(sectionId)) return false;
+  }
+
+  return true;
+}
+
 function readStore() {
   if (typeof window === "undefined") return {};
   try {
@@ -25,18 +55,22 @@ function writeStore(store) {
 export function getSectionDocuments(sectionType, sectionId) {
   const store = readStore();
   const key = `${sectionType}:${sectionId}`;
-  return Array.isArray(store[key]) ? store[key] : [];
+  const documents = Array.isArray(store[key]) ? store[key] : [];
+  return documents.filter((document) => matchesSectionScope(document, sectionType, sectionId));
 }
 
 export function saveSectionDocuments(sectionType, sectionId, documents) {
   const store = readStore();
   const key = `${sectionType}:${sectionId}`;
-  store[key] = Array.isArray(documents) ? documents : [];
+  const normalizedDocuments = Array.isArray(documents)
+    ? documents.map((document) => normalizeSectionDocument(document, sectionType, sectionId))
+    : [];
+  store[key] = normalizedDocuments;
   writeStore(store);
   return store[key];
 }
 
-export function mergeSectionDocuments(remoteDocuments, fallbackDocuments) {
+export function mergeSectionDocuments(remoteDocuments, fallbackDocuments, sectionType = null, sectionId = null) {
   const remote = Array.isArray(remoteDocuments) ? remoteDocuments : [];
   const fallback = Array.isArray(fallbackDocuments) ? fallbackDocuments : [];
   const merged = [];
@@ -44,8 +78,9 @@ export function mergeSectionDocuments(remoteDocuments, fallbackDocuments) {
 
   [...remote, ...fallback].forEach((doc) => {
     if (!doc || !doc.id || seen.has(doc.id)) return;
+    if (!matchesSectionScope(doc, sectionType, sectionId)) return;
     seen.add(doc.id);
-    merged.push(doc);
+    merged.push(normalizeSectionDocument(doc, sectionType, sectionId));
   });
 
   return merged;
@@ -53,7 +88,8 @@ export function mergeSectionDocuments(remoteDocuments, fallbackDocuments) {
 
 export function appendSectionDocument(sectionType, sectionId, document) {
   const existing = getSectionDocuments(sectionType, sectionId);
-  const next = [document, ...existing.filter((item) => item.id !== document.id)];
+  const scopedDocument = normalizeSectionDocument(document, sectionType, sectionId);
+  const next = [scopedDocument, ...existing.filter((item) => item.id !== scopedDocument.id)];
   saveSectionDocuments(sectionType, sectionId, next);
   return next;
 }
@@ -65,7 +101,7 @@ export function removeSectionDocument(sectionType, sectionId, documentId) {
   return next;
 }
 
-export function buildUploadedDocument(file, url, path = null, uploadedAt = new Date().toISOString()) {
+export function buildUploadedDocument(file, url, path = null, uploadedAt = new Date().toISOString(), sectionType = null, sectionId = null) {
   return {
     id: `${Date.now()}-${(file.name || "file").replace(/\s+/g, "-")}`,
     name: file.name || "Untitled file",
@@ -74,6 +110,8 @@ export function buildUploadedDocument(file, url, path = null, uploadedAt = new D
     url,
     path,
     uploadedAt,
+    sectionType,
+    sectionId,
   };
 }
 

@@ -128,7 +128,7 @@ export default function Projects() {
         const updated = PROJECTS.map((p) => {
           const remoteProject = remoteById[p.id] || {};
           const localDocuments = getSectionDocuments('project', p.id);
-          const mergedDocuments = mergeSectionDocuments(remoteProject.documents, localDocuments);
+          const mergedDocuments = mergeSectionDocuments(remoteProject.documents, localDocuments, 'project', p.id);
           return {
             ...p,
             ...remoteProject,
@@ -180,7 +180,7 @@ export default function Projects() {
         path = res.path;
       }
 
-      const docEntry = buildUploadedDocument(file, url, path);
+      const docEntry = buildUploadedDocument(file, url, path, undefined, 'project', selected.id);
       appendSectionDocument('project', selected.id, docEntry);
 
       const updatedDocuments = [docEntry, ...(selected.documents || [])];
@@ -195,7 +195,7 @@ export default function Projects() {
       // eslint-disable-next-line no-console
       console.error('uploadFileToStorage failed, using local URL', err);
       const url = URL.createObjectURL(file);
-      const docEntry = buildUploadedDocument(file, url);
+      const docEntry = buildUploadedDocument(file, url, null, undefined, 'project', selected.id);
       appendSectionDocument('project', selected.id, docEntry);
       const updatedDocuments = [docEntry, ...(selected.documents || [])];
       const updated = projects.map((p) =>
@@ -698,7 +698,7 @@ function UploadTab({ project, onUploadPpt }) {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Upload</p>
         <div
           onClick={onUploadPpt}
-          className="border-2 border-dashed border-yellow-200 rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-yellow-50 transition-colors group"
+          className="border-2 border-dashed border-yellow-200 rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-yellow-50 transition-colors group btn-press"
         >
           <div className="w-12 h-12 rounded-2xl bg-yellow-100 group-hover:bg-yellow-200 flex items-center justify-center transition-colors">
             <Upload size={20} className="text-yellow-600" />

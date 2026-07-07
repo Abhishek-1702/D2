@@ -218,6 +218,7 @@ export default function Meetings() {
         files: uploaded.map((doc) => ({ ...doc, uploadedAt: doc.uploadedAt || new Date().toISOString() })),
       };
 
+      newMeeting.files = newMeeting.files.map((doc) => ({ ...doc, sectionType: 'meeting', sectionId: newMeeting.id }));
       newMeeting.files.forEach((doc) => appendSectionDocument('meeting', newMeeting.id, doc));
       const nextMeetings = [newMeeting, ...meetings];
       setMeetings(nextMeetings);

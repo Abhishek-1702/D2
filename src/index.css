@@ -72,6 +72,18 @@
   .mobile-visible {
     @apply sm:hidden;
   }
+
+  .btn-press {
+    transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .btn-press:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-press:active {
+    transform: translateY(1px);
+  }
 }
 
 @keyframes marquee {

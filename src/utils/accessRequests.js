@@ -25,34 +25,36 @@ function writeLocal(list) {
 }
 
 export async function readRequests() {
-  // try remote first
   try {
     const remote = await readSharedJsonFile("app-data/access-requests.json");
-    if (Array.isArray(remote)) return remote;
+    if (Array.isArray(remote)) {
+      writeLocal(remote);
+      return remote;
+    }
   } catch (e) {
-    // ignore
+    // ignore remote failure and fall back to local cache
   }
   return readLocal();
 }
 
 export async function writeRequests(list) {
-  // write local copy
   writeLocal(list);
   try {
     await writeSharedJsonFile("app-data/access-requests.json", list);
   } catch (e) {
-    // ignore
+    console.error('Failed to persist access requests to shared storage', e);
   }
   return list;
 }
 
 export async function addRequest(entry) {
   const list = await readRequests();
-  const filtered = list.filter((item) => {
-    if (item.email !== entry.email) return true;
-    return item.status === 'rejected' ? false : true;
-  });
-  const next = [entry, ...filtered];
+  const hasPending = list.some((item) => item.email === entry.email && item.status === 'pending');
+  if (hasPending) {
+    throw new Error('A pending request already exists for this email.');
+  }
+
+  const next = [entry, ...list.filter((item) => item.email !== entry.email)];
   await writeRequests(next);
   return next;
 }

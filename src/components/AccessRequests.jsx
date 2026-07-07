@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, updateRequestStatus } from "../utils/accessRequests";
+import { readRequests, updateRequestStatus, clearAllRequests } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
@@ -11,12 +11,20 @@ export default function AccessRequests({ onBack }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const refresh = async () => {
+    try {
+      const items = await readRequests();
+      setRequests(items || []);
+    } catch (error) {
+      console.error('Failed to refresh access requests', error);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const items = await readRequests();
-        setRequests(items || []);
+        await refresh();
       } finally {
         setLoading(false);
       }
@@ -24,10 +32,18 @@ export default function AccessRequests({ onBack }) {
     load();
   }, []);
 
-  const refresh = async () => {
-    const items = await readRequests();
-    setRequests(items || []);
-  };
+  useEffect(() => {
+    const handleRefresh = () => {
+      refresh();
+    };
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('storage', handleRefresh);
+    return () => {
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('storage', handleRefresh);
+    };
+  }, []);
 
   const buildEmailLink = (email, subject, body) => {
     const encodedSubject = encodeURIComponent(subject);
@@ -111,14 +127,24 @@ export default function AccessRequests({ onBack }) {
     );
   }
 
+  const handleClearAll = async () => {
+    if (!window.confirm('Clear all access requests?')) return;
+    await clearAllRequests();
+    await refresh();
+  };
+
   return (
     <div className="px-8 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Access requests</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={refresh} className="px-3 py-2 rounded border text-sm">Refresh</button>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
+        <div>
+          <h1 className="text-2xl font-bold">Access requests</h1>
+          <p className="text-sm text-gray-500">Manage pending requests and grant or reject access from the admin portal.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={refresh} className="px-3 py-2 rounded border text-sm btn-press">Refresh</button>
+          <button onClick={handleClearAll} className="px-3 py-2 rounded border bg-red-50 text-sm text-red-700 btn-press">Clear all</button>
           {onBack ? (
-            <button onClick={onBack} className="px-3 py-2 rounded border text-sm">Back</button>
+            <button onClick={onBack} className="px-3 py-2 rounded border text-sm btn-press">Back</button>
           ) : null}
         </div>
       </div>
@@ -140,8 +166,8 @@ export default function AccessRequests({ onBack }) {
               <div className="flex gap-2">
                 {r.status === 'pending' && (
                   <>
-                    <button onClick={() => handleApprove(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm">Grant</button>
-                    <button onClick={() => handleReject(r.email)} className="px-3 py-1 rounded bg-gray-100 text-sm">Reject</button>
+                    <button onClick={() => handleApprove(r.email)} className="px-3 py-1 rounded bg-green-600 text-white text-sm btn-press">Grant</button>
+                    <button onClick={() => handleReject(r.email)} className="px-3 py-1 rounded bg-gray-100 text-sm btn-press">Reject</button>
                   </>
                 )}
               </div>
