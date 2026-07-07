@@ -4,6 +4,8 @@ import { Search, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { readRequests, addRequest, updateRequestStatus } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
+import { reauthenticateUser, updateUserPassword } from "../firebase";
+import { getAuthorityOptions } from "../utils/meetingNotifications";
 
 export default function UppclHeader({ activeTab, setActiveTab, language = 'en', setLanguage }) {
   const { user, signIn, signOut, authError, clearAuthError } = useAuth();
@@ -11,7 +13,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [requests, setRequests] = useState([]);
-  const [requestForm, setRequestForm] = useState({ name: "", mobile: "", email: "", designation: "", office: "" });
+  const [requestForm, setRequestForm] = useState({ name: "", mobile: "", email: "", designationOption: "", designationCustom: "", office: "" });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,9 +22,16 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', designation: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', designation: '', designationOption: '', designationCustom: '' });
   const [profile, setProfile] = useState({ name: '', designation: '' });
   const [profileSaving, setProfileSaving] = useState(false);
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordResetError, setPasswordResetError] = useState('');
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState('');
+  const [passwordResetSaving, setPasswordResetSaving] = useState(false);
   const isHindi = language === 'hi';
 
   const openModal = useCallback(() => {
@@ -99,7 +108,8 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   useEffect(() => {
     if (!user?.uid) {
       setProfile({ name: '', designation: '' });
-      setProfileForm({ name: '', designation: '' });
+      setProfileForm({ name: '', designation: '', designationOption: '', designationCustom: '' });
+      setRequirePasswordChange(false);
       return;
     }
 
@@ -107,18 +117,29 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     const loadProfile = async () => {
       const stored = readStoredProfile(user.uid);
       const shared = await readSharedJsonFile(PROFILE_SHARED_PATH);
-      const sharedProfile = shared?.[user.uid] || null;
-      const resolved = sharedProfile || stored || {};
+      const sharedProfileByUid = shared?.[user.uid] || null;
+      const sharedProfileByEmail = shared?.[user.email?.toLowerCase()] || null;
+      const resolved = sharedProfileByUid || sharedProfileByEmail || stored || {};
 
       if (!mounted) return;
       setProfile({
         name: resolved.name || user.displayName || '',
         designation: resolved.designation || '',
       });
+      const initialDesignation = resolved.designation || '';
+      const isKnownDesignation = authorityRequestOptions.some((option) => option.value === initialDesignation);
       setProfileForm({
         name: resolved.name || user.displayName || '',
-        designation: resolved.designation || '',
+        designation: isKnownDesignation ? initialDesignation : 'other',
+        designationOption: isKnownDesignation ? initialDesignation : '',
+        designationCustom: isKnownDesignation ? '' : initialDesignation,
       });
+      if (resolved.mustChangePassword) {
+        setRequirePasswordChange(true);
+        setProfileModalOpen(true);
+      } else {
+        setRequirePasswordChange(false);
+      }
     };
 
     loadProfile();
@@ -140,18 +161,28 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   }, []);
 
   const openRequestModal = () => {
-    setRequestForm({ name: '', mobile: '', email: '', designation: '', office: '' });
+    setRequestForm({ name: '', mobile: '', email: '', designationOption: '', designationCustom: '', office: '' });
     setRequestModalOpen(true);
   };
 
+  const authorityRequestOptions = getAuthorityOptions();
+
   const submitRequest = async (e) => {
     e.preventDefault();
+    const name = requestForm.name.trim();
+    const selectedOption = requestForm.designationOption;
+    const customDesignation = requestForm.designationCustom.trim();
+    const designationValue = selectedOption && selectedOption !== 'other'
+      ? selectedOption
+      : customDesignation;
+
     const entry = {
       id: Date.now(),
-      name: requestForm.name.trim(),
+      name,
       mobile: requestForm.mobile.trim(),
       email: requestForm.email.trim().toLowerCase(),
-      designation: requestForm.designation.trim(),
+      designation: designationValue,
+      rawDesignation: selectedOption || customDesignation,
       office: requestForm.office.trim(),
       status: 'pending',
       createdAt: new Date().toISOString(),
@@ -178,9 +209,12 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     if (!user?.uid) return;
     setProfileSaving(true);
     try {
+      const resolvedDesignation = profileForm.designationOption === 'other'
+        ? profileForm.designationCustom.trim()
+        : profileForm.designation.trim();
       const nextProfile = {
         name: profileForm.name.trim(),
-        designation: profileForm.designation.trim(),
+        designation: resolvedDesignation,
         email: user.email || '',
       };
       writeStoredProfile(user.uid, nextProfile);
@@ -188,6 +222,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       const nextShared = {
         ...(existingShared || {}),
         [user.uid]: nextProfile,
+        [user.email?.toLowerCase()]: nextProfile,
       };
       await writeSharedJsonFile(PROFILE_SHARED_PATH, nextShared);
       setProfile(nextProfile);
@@ -206,6 +241,54 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       setModalOpen(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setPasswordResetError("");
+    setPasswordResetSuccess("");
+    if (!user) return;
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPasswordResetError("Please complete all password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordResetError("New password and confirmation must match.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordResetError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setPasswordResetSaving(true);
+    try {
+      await reauthenticateUser(user, oldPassword);
+      await updateUserPassword(user, newPassword);
+      const existingShared = await readSharedJsonFile(PROFILE_SHARED_PATH);
+      const nextShared = {
+        ...(existingShared || {}),
+        [user.uid]: {
+          ...(existingShared?.[user.uid] || {}),
+          mustChangePassword: false,
+        },
+        [user.email?.toLowerCase()]: {
+          ...(existingShared?.[user.email?.toLowerCase()] || {}),
+          mustChangePassword: false,
+        },
+      };
+      await writeSharedJsonFile(PROFILE_SHARED_PATH, nextShared);
+      setRequirePasswordChange(false);
+      setPasswordResetSuccess("Password updated successfully.");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Password reset failed", error);
+      setPasswordResetError(error?.message || "Unable to change password.");
+    } finally {
+      setPasswordResetSaving(false);
     }
   };
 
@@ -241,13 +324,13 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               <button type="button" onClick={() => openLink('https://upptcl.org/upptcl')} className="text-[10px] lg:text-xs hover:underline">
                 VBTS
               </button>
-              {showRequestAccess ? (
+              {user && OWNER_EMAIL && user.email === OWNER_EMAIL ? (
                 <button
                   type="button"
-                  onClick={openRequestModal}
+                  onClick={() => { setAdminModalOpen(true); setActiveTab('access-requests'); }}
                   className="rounded-full border border-white/40 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-white/20"
                 >
-                  Request access
+                  Access requests
                 </button>
               ) : null}
               <span className="rounded-full bg-white/15 px-2 lg:px-3 py-1 text-[10px] lg:text-[11px] font-semibold whitespace-nowrap">
@@ -387,22 +470,24 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                 ) : null}
               </>
             ) : (
-              <button
-                onClick={openModal}
-                className="bg-[#1f498c] hover:bg-blue-800 text-white px-2 sm:px-4 py-1.5 rounded text-xs sm:text-sm whitespace-nowrap"
-              >
-                LOGIN
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={openModal}
+                  className="bg-[#1f498c] hover:bg-blue-800 text-white px-2 sm:px-4 py-1.5 rounded text-xs sm:text-sm whitespace-nowrap"
+                >
+                  LOGIN
+                </button>
+                {showRequestAccess ? (
+                  <button
+                    type="button"
+                    onClick={openRequestModal}
+                    className="rounded border border-gray-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-[#1f498c] transition hover:bg-gray-50"
+                  >
+                    Request access
+                  </button>
+                ) : null}
+              </div>
             )}
-            {/* Owner admin: show access requests panel */}
-            {user && OWNER_EMAIL && user.email === OWNER_EMAIL ? (
-              <button
-                onClick={() => { setAdminModalOpen(true); setActiveTab('access-requests'); }}
-                className="bg-white border border-gray-200 text-[#1f498c] px-2 py-1 rounded text-xs hidden sm:inline"
-              >
-                Access requests
-              </button>
-            ) : null}
           </div>
         </div>
 
@@ -577,6 +662,11 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               <button onClick={() => setProfileModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
             </div>
             <form onSubmit={saveProfile} className="space-y-4">
+              {requirePasswordChange ? (
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                  You must change your password before continuing.
+                </div>
+              ) : null}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-2">Name</label>
                 <input
@@ -589,12 +679,69 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-2">Designation</label>
-                <input
-                  value={profileForm.designation}
-                  onChange={(e) => setProfileForm({ ...profileForm, designation: e.target.value })}
+                <select
+                  value={profileForm.designationOption || profileForm.designation}
+                  onChange={(e) => setProfileForm({ ...profileForm, designationOption: e.target.value, designation: e.target.value, designationCustom: '' })}
                   className="w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
-                  placeholder="e.g. Assistant Engineer"
-                />
+                >
+                  <option value="">Choose designation</option>
+                  {authorityRequestOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                  <option value="other">Others</option>
+                </select>
+                {profileForm.designationOption === 'other' || profileForm.designation === 'other' ? (
+                  <input
+                    value={profileForm.designationCustom}
+                    onChange={(e) => setProfileForm({ ...profileForm, designationCustom: e.target.value, designation: 'other' })}
+                    className="mt-2 w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
+                    placeholder="Enter your designation"
+                  />
+                ) : null}
+              </div>
+              <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <div className="text-sm font-semibold text-gray-800">Reset password</div>
+                <div className="text-xs text-gray-500">Enter your current password and choose a new one.</div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2">Current password</label>
+                  <input
+                    type="password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
+                    placeholder="Old password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2">New password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
+                    placeholder="New password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2">Confirm new password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full rounded border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:border-[#1f498c]"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                {passwordResetError && <div className="text-xs text-red-600">{passwordResetError}</div>}
+                {passwordResetSuccess && <div className="text-xs text-green-600">{passwordResetSuccess}</div>}
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={passwordResetSaving}
+                  className="w-full rounded bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {passwordResetSaving ? 'Updating password…' : 'Update password'}
+                </button>
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setProfileModalOpen(false)} className="px-3 py-2 rounded border">Cancel</button>
@@ -630,8 +777,31 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500">Designation</label>
-                  <input value={requestForm.designation} onChange={(e)=>setRequestForm({...requestForm,designation:e.target.value})} className="w-full rounded border px-3 py-2" />
+                  <select
+                    value={requestForm.designationOption}
+                    onChange={(e) => setRequestForm({ ...requestForm, designationOption: e.target.value, designationCustom: '' })}
+                    className="w-full rounded border px-3 py-2"
+                    required
+                  >
+                    <option value="">Choose designation</option>
+                    {authorityRequestOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                    <option value="other">Others</option>
+                  </select>
                 </div>
+                {requestForm.designationOption === 'other' && (
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-500">Other designation</label>
+                    <input
+                      value={requestForm.designationCustom}
+                      onChange={(e) => setRequestForm({ ...requestForm, designationCustom: e.target.value })}
+                      className="w-full rounded border px-3 py-2"
+                      placeholder="Enter your designation"
+                      required
+                    />
+                  </div>
+                )}
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500">Office</label>
                   <input value={requestForm.office} onChange={(e)=>setRequestForm({...requestForm,office:e.target.value})} className="w-full rounded border px-3 py-2" />

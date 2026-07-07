@@ -23,7 +23,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as fbSignOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword as fbUpdatePassword,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -96,6 +99,17 @@ export async function signOutUser() {
 export function onAuthChange(callback) {
   if (!auth) return () => {};
   return onAuthStateChanged(auth, callback);
+}
+
+export async function reauthenticateUser(user, oldPassword) {
+  if (!auth || !user) throw new Error("Firebase Auth not initialized");
+  const credential = EmailAuthProvider.credential(user.email, oldPassword);
+  return reauthenticateWithCredential(user, credential);
+}
+
+export async function updateUserPassword(user, newPassword) {
+  if (!auth || !user) throw new Error("Firebase Auth not initialized");
+  return fbUpdatePassword(user, newPassword);
 }
 
 // ======================

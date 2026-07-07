@@ -29,6 +29,7 @@ export default function Projects() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
   const [pptModal, setPptModal] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const listRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();

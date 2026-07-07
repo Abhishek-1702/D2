@@ -85,6 +85,29 @@ export const AUTHORITY_HIERARCHY = [
 
 export const OFFICERS = AUTHORITY_HIERARCHY.flatMap((item) => [item, ...item.children.flatMap((child) => child.children || [])]);
 
+export function getFinalAuthorityOptions(nodes = AUTHORITY_HIERARCHY, parentPath = []) {
+  return nodes.flatMap((node) => {
+    const currentPath = [...parentPath, node.label];
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    if (!hasChildren) {
+      return [{ label: node.label, value: node.label }];
+    }
+    return getFinalAuthorityOptions(node.children, currentPath);
+  });
+}
+
+export function getAuthorityOptions() {
+  return getFinalAuthorityOptions();
+}
+
+export function getDesignationDisplayLabel(name, designation) {
+  const trimmedName = (name || "").trim();
+  const trimmedDesignation = (designation || "").trim();
+  if (!trimmedName && !trimmedDesignation) return "";
+  if (trimmedName && trimmedDesignation) return `${trimmedName} — ${trimmedDesignation}`;
+  return trimmedName || trimmedDesignation;
+}
+
 export function resolveMeetingDesignation(selectedPosition) {
   return selectedPosition || "";
 }

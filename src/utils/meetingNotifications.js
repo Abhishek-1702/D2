@@ -1,18 +1,7 @@
-import { AUTHORITY_HIERARCHY } from "../data/officers";
-
-export function flattenAuthorityOptions(nodes = [], parentPath = []) {
-  return nodes.flatMap((node) => {
-    const currentPath = [...parentPath, node.label];
-    const entries = [{ label: currentPath.join(" > "), value: currentPath.join(" > ") }];
-    if (Array.isArray(node.children) && node.children.length > 0) {
-      entries.push(...flattenAuthorityOptions(node.children, currentPath));
-    }
-    return entries;
-  });
-}
+import { getAuthorityOptions as getFinalAuthorityOptions } from "../data/officers";
 
 export function getAuthorityOptions() {
-  return flattenAuthorityOptions(AUTHORITY_HIERARCHY);
+  return getFinalAuthorityOptions();
 }
 
 export function buildMeetingNotificationText(meeting, recipient) {

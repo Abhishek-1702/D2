@@ -1,7 +1,7 @@
 // src/components/Meetings.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, X, Eye } from "lucide-react";
-import { AUTHORITY_HIERARCHY, resolveMeetingDesignation } from "../data/officers";
+import { getDesignationDisplayLabel, resolveMeetingDesignation } from "../data/officers";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
@@ -55,8 +55,8 @@ export default function Meetings() {
   const [meetingTitle, setMeetingTitle] = useState("");
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
-  const [selectedPath, setSelectedPath] = useState([]);
   const [selectedPosition, setSelectedPosition] = useState("");
+  const [customDesignation, setCustomDesignation] = useState("");
   const [personName, setPersonName] = useState("");
   const [meetingConductedBy, setMeetingConductedBy] = useState("");
   const fileInputRef = useRef(null);
@@ -148,6 +148,7 @@ export default function Meetings() {
   const handleAddMeeting = async (e) => {
     e.preventDefault();
     if (!selectedPosition) return;
+    if (selectedPosition === "other" && !customDesignation.trim()) return;
     if (!meetingTitle.trim()) return;
     setSaving(true);
     try {
@@ -180,14 +181,14 @@ export default function Meetings() {
         }
       }
 
-      const selectedDesignation = resolveMeetingDesignation(selectedPosition);
+      const selectedDesignation = resolveMeetingDesignation(selectedPosition === "other" ? customDesignation.trim() : selectedPosition);
       const now = new Date();
       const meetingDoc = {
         title: meetingTitle.trim(),
         date: date || now.toISOString().slice(0, 10),
         time: now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
         designation: selectedDesignation,
-        officer: personName.trim() || selectedDesignation,
+        officer: getDesignationDisplayLabel(personName, selectedDesignation),
         conductedBy: meetingConductedBy.trim() || userProfile.name || "",
         profileName: userProfile.name || "",
         profileDesignation: userProfile.designation || "",
@@ -217,8 +218,8 @@ export default function Meetings() {
       setNote("");
       setPersonName("");
       setMeetingConductedBy("");
-      setSelectedPath([]);
       setSelectedPosition("");
+      setCustomDesignation("");
       if (fileInputRef.current) fileInputRef.current.value = null;
     } finally {
       setSaving(false);
@@ -266,8 +267,8 @@ export default function Meetings() {
     setDate("");
     setNote("");
     setPersonName("");
-    setSelectedPath([]);
     setSelectedPosition("");
+    setCustomDesignation("");
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
@@ -325,25 +326,11 @@ export default function Meetings() {
     }
   };
 
-  const getNextOptions = (path) => {
-    // Traverse the tree using the path segments. Start from the root list.
-    if (path.length === 0) return AUTHORITY_HIERARCHY;
-    let nodes = AUTHORITY_HIERARCHY;
-    for (const segment of path) {
-      const found = nodes.find((n) => n.label === segment);
-      if (!found) return [];
-      nodes = found.children || [];
+  const handleDesignationChange = (value) => {
+    setSelectedPosition(value);
+    if (value !== "other") {
+      setCustomDesignation("");
     }
-    return nodes || [];
-  };
-
-  const handleSelectionChange = (value, level) => {
-    const nextPath = selectedPath.slice(0, level);
-    nextPath[level] = value;
-    const trimmed = nextPath.filter((entry) => entry !== undefined);
-    setSelectedPath(trimmed);
-    // only keep the last selected designation (not the full tree)
-    setSelectedPosition(value || trimmed[trimmed.length - 1] || "");
   };
 
   const getPreviewSource = (file) => {
@@ -394,36 +381,26 @@ export default function Meetings() {
         <form onSubmit={handleAddMeeting} className="space-y-4 max-w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="space-y-3">
             <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Authority position</label>
-            <div className="flex gap-3 flex-nowrap overflow-x-auto">
-              {selectedPath.map((value, index) => (
-                <select
-                  key={`${value}-${index}`}
-                  value={value}
-                  onChange={(e) => handleSelectionChange(e.target.value, index)}
+            <div className="flex flex-col gap-3 md:flex-row">
+              <select
+                value={selectedPosition}
+                onChange={(e) => handleDesignationChange(e.target.value)}
+                className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
+              >
+                <option value="">Choose designation</option>
+                {authorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+                <option value="other">Others</option>
+              </select>
+              {selectedPosition === "other" ? (
+                <input
+                  value={customDesignation}
+                  onChange={(e) => setCustomDesignation(e.target.value)}
+                  placeholder="Enter designation"
                   className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
-                >
-                  <option value="">Select</option>
-                  {getNextOptions(selectedPath.slice(0, index)).map((option) => (
-                    <option key={option.label} value={option.label}>{option.label}</option>
-                  ))}
-                </select>
-              ))}
-              {(() => {
-                const nextOptions = getNextOptions(selectedPath);
-                if (!nextOptions || nextOptions.length === 0) return null;
-                return (
-                  <select
-                    value=""
-                    onChange={(e) => handleSelectionChange(e.target.value, selectedPath.length)}
-                    className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
-                  >
-                    <option value="">Designation</option>
-                    {nextOptions.map((option) => (
-                      <option key={option.label} value={option.label}>{option.label}</option>
-                    ))}
-                  </select>
-                );
-              })()}
+                />
+              ) : null}
             </div>
           </div>
 

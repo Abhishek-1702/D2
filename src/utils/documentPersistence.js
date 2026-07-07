@@ -106,6 +106,15 @@ export async function writeSharedJsonFile(filePath, value) {
   }
 }
 
+export async function readUserProfilesFile() {
+  const data = await readSharedJsonFile("app-data/user-profiles.json");
+  return data && typeof data === "object" ? data : {};
+}
+
+export async function writeUserProfilesFile(profiles) {
+  return writeSharedJsonFile("app-data/user-profiles.json", profiles);
+}
+
 export function formatTimestamp(value) {
   if (!value) return "No timestamp";
   const date = new Date(value);

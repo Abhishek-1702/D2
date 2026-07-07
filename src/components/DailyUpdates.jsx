@@ -113,12 +113,19 @@ export default function DailyUpdates() {
   const isFutureSelection = selectedPeriod ? selectedPeriod > currentPeriod : false;
 
   const visibleUpdates = useMemo(() => {
-    return updates.filter((item) => {
+    const filtered = updates.filter((item) => {
       const itemYear = item.reportYear || item.date?.slice(0, 4);
       const itemMonth = item.reportMonth || item.date?.slice(5, 7);
       if (filterYear && itemYear !== filterYear) return false;
       if (filterMonth && itemMonth !== filterMonth.padStart(2, "0")) return false;
       return true;
+    });
+
+    return filtered.sort((a, b) => {
+      const dateA = a.date || "";
+      const dateB = b.date || "";
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return (b.time || "").localeCompare(a.time || "");
     });
   }, [filterMonth, filterYear, updates]);
 
@@ -405,7 +412,10 @@ export default function DailyUpdates() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{item.personName}</p>
-                      <p className="text-xs text-gray-500">{item.date} • {item.time}</p>
+                      <p className="text-xs text-gray-500">
+                        {item.date}
+                        {item.date === new Date().toISOString().slice(0, 10) && item.time ? ` • ${item.time}` : ""}
+                      </p>
                     </div>
                     {user ? (
                       <button

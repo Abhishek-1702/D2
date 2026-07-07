@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { readRequests, updateRequestStatus } from "../utils/accessRequests";
+import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 
 export default function AccessRequests({ onBack }) {
   const { user } = useAuth();
@@ -26,16 +27,54 @@ export default function AccessRequests({ onBack }) {
     setRequests(items || []);
   };
 
+  const buildEmailLink = (email, subject, body) => {
+    const encodedSubject = encodeURIComponent(subject);
+    const encodedBody = encodeURIComponent(body);
+    return `mailto:${email}?subject=${encodedSubject}&body=${encodedBody}`;
+  };
+
+  const saveUserProfileMetadata = async (email, metadata) => {
+    const normalizedEmail = email.toLowerCase();
+    const existingShared = await readSharedJsonFile("app-data/user-profiles.json");
+    const nextShared = {
+      ...(existingShared || {}),
+      [normalizedEmail]: {
+        ...(existingShared?.[normalizedEmail] || {}),
+        ...metadata,
+      },
+    };
+    await writeSharedJsonFile("app-data/user-profiles.json", nextShared);
+    return nextShared;
+  };
+
   const handleApprove = async (email) => {
+    const request = requests.find((r) => r.email === email);
+    if (!request) return;
+
+    const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1`;
     await updateRequestStatus(email, "approved");
+    await saveUserProfileMetadata(email, {
+      mustChangePassword: true,
+      tempPasswordCreatedAt: new Date().toISOString(),
+      displayName: request.name,
+    });
     await refresh();
-    // eslint-disable-next-line no-alert
-    alert(`${email} approved`);
+
+    const subject = "Access granted to KESCO dashboard";
+    const body = `Hello ${request.name},\n\nYour access request has been approved. Use the following temporary password to sign in:\n\nEmail: ${request.email}\nPassword: ${tempPassword}\n\nAfter signing in, you will be prompted to change your password.\n\nIf you did not request access, please ignore this message.`;
+    window.location.href = buildEmailLink(request.email, subject, body);
   };
 
   const handleReject = async (email) => {
+    const request = requests.find((r) => r.email === email);
+    if (!request) return;
+
     await updateRequestStatus(email, "rejected");
     await refresh();
+
+    const subject = "Access request declined";
+    const body = `Hello ${request.name},\n\nYour request for access has been declined. If you believe this is a mistake, please contact the admin.\n\nRegards,\nKESCO Portal`;
+    window.location.href = buildEmailLink(request.email, subject, body);
   };
 
   if (!user || !OWNER_EMAIL || user.email !== OWNER_EMAIL) {
