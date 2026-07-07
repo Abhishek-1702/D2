@@ -94,7 +94,10 @@ function writeLocal(list, notify = true) {
 }
 
 async function readRemoteRequestsFromSupabase() {
-  if (!isSupabaseConfigured || !supabase) return null;
+  if (!isSupabaseConfigured || !supabase) {
+    console.debug("Supabase not configured, skipping remote access request read.");
+    return null;
+  }
   try {
     const { data, error } = await supabase
       .from("access_requests")
@@ -106,7 +109,9 @@ async function readRemoteRequestsFromSupabase() {
       return null;
     }
 
-    return Array.isArray(data) ? data.map(normalizeRequestEntry).filter(Boolean) : [];
+    const normalized = Array.isArray(data) ? data.map(normalizeRequestEntry).filter(Boolean) : [];
+    console.debug("Supabase access requests loaded", normalized.length, "records");
+    return normalized;
   } catch (error) {
     console.error("Unexpected Supabase access requests read error", error);
     return null;
@@ -114,14 +119,19 @@ async function readRemoteRequestsFromSupabase() {
 }
 
 async function writeRemoteRequestsToSupabase(list) {
-  if (!isSupabaseConfigured || !supabase) return null;
+  if (!isSupabaseConfigured || !supabase) {
+    console.debug("Supabase not configured, skipping remote access request write.");
+    return null;
+  }
   const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
+  console.debug("Writing access requests to Supabase", normalized.length, "records");
   try {
     const { error } = await supabase.from("access_requests").upsert(normalized, { onConflict: "email" });
     if (error) {
       console.error("Failed to write access requests to Supabase", error);
       return null;
     }
+    console.debug("Supabase access requests upsert succeeded");
     return normalized;
   } catch (error) {
     console.error("Unexpected Supabase access requests write error", error);
@@ -165,7 +175,7 @@ async function writeRemoteRequests(list) {
 export async function readRequests() {
   const local = readLocal();
   const remote = await readRemoteRequests();
-  if (remote) {
+  if (remote !== null) {
     const merged = mergeRequests(local, remote);
     if (JSON.stringify(merged) !== JSON.stringify(local)) {
       writeLocal(merged, false);
@@ -187,8 +197,12 @@ export function readCachedRequests() {
 
 export async function writeRequests(list) {
   const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
+  console.debug("Persisting access requests locally", normalized.length, "records");
   writeLocal(normalized);
-  await writeRemoteRequests(normalized);
+  const remoteResult = await writeRemoteRequests(normalized);
+  if (remoteResult === null) {
+    console.warn("Remote access requests persistence failed, local copy only.");
+  }
   return normalized;
 }
 
@@ -199,6 +213,7 @@ export async function addRequest(entry) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
+  console.debug("Adding access request", normalizedEntry.email, normalizedEntry);
   const hasPending = list.some((item) => item.email === normalizedEntry.email && item.status === 'pending');
   if (hasPending) {
     throw new Error('A pending request already exists for this email.');
