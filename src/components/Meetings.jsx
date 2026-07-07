@@ -272,6 +272,14 @@ export default function Meetings() {
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
+  const handleDeleteScheduledMeeting = (meetingId) => {
+    if (!canManageDocuments) return;
+    const nextList = scheduledMeetings.filter((item) => item.id !== meetingId);
+    setScheduledMeetings(nextList);
+    writeStoredScheduledMeetings(nextList);
+    setNotificationStatus("Scheduled meeting removed.");
+  };
+
   const handleScheduleMeeting = async (event) => {
     event.preventDefault();
     if (!user) {
@@ -523,16 +531,30 @@ export default function Meetings() {
                       {item.meetingLink ? <a href={item.meetingLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm text-blue-600">Open meeting link</a> : null}
                       {item.recipient ? <p className="mt-1 text-xs text-gray-500">Recipients: {item.recipient}</p> : null}
                     </div>
-                    {user ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSendNotification(item)}
-                        disabled={sendingNotification}
-                        className="rounded-xl border border-[#1f498c] px-3 py-2 text-sm font-semibold text-[#1f498c] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {sendingNotification ? "Sending..." : "Send notification"}
-                      </button>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      {canManageDocuments ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteScheduledMeeting(item.id)}
+                          className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                          title="Remove scheduled meeting"
+                        >
+                          <span className="flex items-center gap-1">
+                            <X size={14} /> Remove
+                          </span>
+                        </button>
+                      ) : null}
+                      {user ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSendNotification(item)}
+                          disabled={sendingNotification}
+                          className="rounded-xl border border-[#1f498c] px-3 py-2 text-sm font-semibold text-[#1f498c] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {sendingNotification ? "Sending..." : "Send notification"}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
