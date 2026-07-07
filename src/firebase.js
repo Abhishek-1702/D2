@@ -20,7 +20,6 @@ import {
 
 import {
   getAuth,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
@@ -82,16 +81,20 @@ export async function createFirebaseUser(email, password) {
   const apiKey = firebaseConfig.apiKey;
   if (!apiKey) throw new Error("Firebase API key is not configured");
 
+  const payload = {
+    email,
+    password,
+    returnSecureToken: true,
+  };
+
+  console.debug("Creating Firebase user via REST API", email);
+
   const response = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        returnSecureToken: true,
-      }),
+      body: JSON.stringify(payload),
     }
   );
 
@@ -99,10 +102,12 @@ export async function createFirebaseUser(email, password) {
   if (!response.ok) {
     const message = data?.error?.message || "Failed to create Firebase user";
     const error = new Error(message);
-    error.code = message;
+    error.code = data?.error?.message || message;
+    console.error("Firebase REST user creation failed", error.code, data);
     throw error;
   }
 
+  console.debug("Firebase user created via REST API", data.email);
   return data;
 }
 
