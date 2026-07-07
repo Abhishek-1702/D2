@@ -7,6 +7,7 @@ import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersis
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { reauthenticateUser, updateUserPassword } from "../firebase";
 import { getAuthorityOptions } from "../utils/meetingNotifications";
+import { registerAuthorityOption } from "../data/officers";
 
 export default function UppclHeader({ activeTab, setActiveTab, language = 'en', setLanguage }) {
   const { user, signIn, signOut, authError, clearAuthError } = useAuth();
@@ -148,6 +149,15 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     return () => { mounted = false; };
   }, [readStoredProfile, user]);
 
+  const loadRequests = useCallback(async () => {
+    try {
+      const items = await readRequests();
+      setRequests(items);
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -161,6 +171,11 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     load();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!adminModalOpen) return;
+    loadRequests();
+  }, [adminModalOpen, loadRequests]);
 
   const openRequestModal = () => {
     setRequestForm({ name: '', mobile: '', email: '', designationOption: '', designationCustom: '', office: '' });
@@ -180,6 +195,13 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       ? selectedOption
       : customDesignation;
     const normalizedEmail = requestForm.email.trim().toLowerCase();
+
+    if (designationValue) {
+      const isKnown = authorityRequestOptions.some((option) => option.value === designationValue);
+      if (!isKnown) {
+        registerAuthorityOption(designationValue);
+      }
+    }
 
     const existingRequest = await getRequestByEmail(normalizedEmail);
     if (existingRequest) {
@@ -243,6 +265,12 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       const resolvedDesignation = profileForm.designationOption === 'other'
         ? profileForm.designationCustom.trim()
         : profileForm.designation.trim();
+      if (resolvedDesignation) {
+        const isKnown = authorityRequestOptions.some((option) => option.value === resolvedDesignation);
+        if (!isKnown) {
+          registerAuthorityOption(resolvedDesignation);
+        }
+      }
       const nextProfile = {
         name: profileForm.name.trim(),
         designation: resolvedDesignation,

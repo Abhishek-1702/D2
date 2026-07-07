@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { readRequests, updateRequestStatus } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
+import { registerAuthorityOption } from "../data/officers";
 
 export default function AccessRequests({ onBack }) {
   const { user } = useAuth();
@@ -53,6 +54,10 @@ export default function AccessRequests({ onBack }) {
     if (!request) return;
 
     const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1`;
+    const requestedDesignation = (request.designation || request.rawDesignation || "").trim();
+    if (requestedDesignation) {
+      registerAuthorityOption(requestedDesignation);
+    }
     let firebaseUserCreated = false;
 
     if (isFirebaseConfigured) {

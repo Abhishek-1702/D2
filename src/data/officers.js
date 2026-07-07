@@ -85,15 +85,51 @@ export const AUTHORITY_HIERARCHY = [
 
 export const OFFICERS = AUTHORITY_HIERARCHY.flatMap((item) => [item, ...item.children.flatMap((child) => child.children || [])]);
 
+const CUSTOM_AUTHORITY_STORAGE_KEY = 'kesco_custom_authority_options_v1';
+
+function readCustomAuthorityOptions() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_AUTHORITY_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Failed to read custom authority options', error);
+    return [];
+  }
+}
+
+function writeCustomAuthorityOptions(values) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CUSTOM_AUTHORITY_STORAGE_KEY, JSON.stringify(values));
+  } catch (error) {
+    console.error('Failed to write custom authority options', error);
+  }
+}
+
+export function registerAuthorityOption(value) {
+  const cleaned = (value || '').trim();
+  if (!cleaned) return [];
+  const existing = readCustomAuthorityOptions();
+  const next = Array.from(new Set([...existing, cleaned])).sort((a, b) => a.localeCompare(b));
+  writeCustomAuthorityOptions(next);
+  return next;
+}
+
 export function getFinalAuthorityOptions(nodes = AUTHORITY_HIERARCHY, parentPath = []) {
-  return nodes.flatMap((node) => {
+  const baseOptions = nodes.flatMap((node) => {
     const currentPath = [...parentPath, node.label];
     const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const option = [{ label: node.label, value: node.label }];
     if (!hasChildren) {
-      return [{ label: node.label, value: node.label }];
+      return option;
     }
-    return getFinalAuthorityOptions(node.children, currentPath);
+    return [...option, ...getFinalAuthorityOptions(node.children, currentPath)];
   });
+
+  const customOptions = readCustomAuthorityOptions().map((value) => ({ label: value, value }));
+  return [...baseOptions, ...customOptions].filter((item, index, array) => array.findIndex((candidate) => candidate.value === item.value) === index);
 }
 
 export function getAuthorityOptions() {

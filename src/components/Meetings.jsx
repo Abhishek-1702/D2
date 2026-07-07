@@ -5,7 +5,7 @@ import { getDesignationDisplayLabel, resolveMeetingDesignation } from "../data/o
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
-import { buildMeetingEmailLink, buildMeetingNotificationText, getAuthorityOptions, requestBrowserNotificationPermission, sendBrowserMeetingNotification } from "../utils/meetingNotifications";
+import { buildMeetingEmailLink, buildMeetingNotificationText, getAuthorityOptions, readNotificationEmailConfig, requestBrowserNotificationPermission, sendBrowserMeetingNotification, setNotificationEmailForDesignation, writeNotificationEmailConfig } from "../utils/meetingNotifications";
 
 const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
 const SCHEDULED_MEETINGS_STORAGE_KEY = "kesco_scheduled_meetings_v1";
@@ -75,6 +75,10 @@ export default function Meetings() {
   });
   const [notificationStatus, setNotificationStatus] = useState("");
   const [sendingNotification, setSendingNotification] = useState(false);
+  const [showNotificationEmailEditor, setShowNotificationEmailEditor] = useState(false);
+  const [notificationEmailConfig, setNotificationEmailConfig] = useState({});
+  const [notificationEmailDrafts, setNotificationEmailDrafts] = useState({});
+  const [notificationEmailEditorDesignation, setNotificationEmailEditorDesignation] = useState("");
   const [userProfile, setUserProfile] = useState({ name: "", designation: "" });
   const { user } = useAuth();
   const canManageDocuments = isAdminUser(user);
@@ -92,6 +96,12 @@ export default function Meetings() {
   useEffect(() => {
     setDate("");
     setScheduledMeetings(readStoredScheduledMeetings());
+    const loadEmailConfig = async () => {
+      const config = await readNotificationEmailConfig();
+      setNotificationEmailConfig(config || {});
+      setNotificationEmailDrafts(config || {});
+    };
+    loadEmailConfig();
   }, []);
 
   useEffect(() => {
@@ -317,7 +327,14 @@ export default function Meetings() {
       const permission = await requestBrowserNotificationPermission();
       const recipientList = Array.isArray(meeting.recipients) && meeting.recipients.length > 0 ? meeting.recipients : (meeting.recipient ? meeting.recipient.split(",") : []);
       const browserSent = sendBrowserMeetingNotification(meeting, recipientList);
-      const mailLink = buildMeetingEmailLink(meeting, recipientList);
+      const missingEmails = recipientList.filter((designation) => !notificationEmailConfig[designation]);
+      if (missingEmails.length > 0) {
+        setNotificationStatus("Add email addresses for the selected designations before sending notifications.");
+        setShowNotificationEmailEditor(true);
+        setNotificationEmailEditorDesignation(missingEmails[0]);
+        return;
+      }
+      const mailLink = buildMeetingEmailLink(meeting, recipientList, notificationEmailConfig);
       if (browserSent || mailLink) {
         setNotificationStatus(`Notification prepared${permission === "granted" ? " and sent to browser" : ""}${mailLink ? " and email draft opened" : ""}.`);
         if (mailLink) {
@@ -334,11 +351,32 @@ export default function Meetings() {
     }
   };
 
+  const handleToggleRecipient = (designation) => {
+    const nextRecipients = scheduleForm.recipients.includes(designation)
+      ? scheduleForm.recipients.filter((item) => item !== designation)
+      : [...scheduleForm.recipients, designation];
+    setScheduleForm({ ...scheduleForm, recipients: nextRecipients });
+  };
+
   const handleDesignationChange = (value) => {
     setSelectedPosition(value);
     if (value !== "other") {
       setCustomDesignation("");
     }
+  };
+
+  const handleSaveNotificationEmails = async () => {
+    if (!canManageDocuments) return;
+    const nextConfig = { ...notificationEmailConfig, ...notificationEmailDrafts };
+    const saved = await writeNotificationEmailConfig(nextConfig);
+    setNotificationEmailConfig(saved);
+    setNotificationEmailDrafts(saved);
+    setShowNotificationEmailEditor(false);
+    setNotificationStatus("Notification email addresses saved.");
+  };
+
+  const handleSetEmailDraft = (designation, value) => {
+    setNotificationEmailDrafts((prev) => ({ ...prev, [designation]: value }));
   };
 
   const getPreviewSource = (file) => {
@@ -545,14 +583,27 @@ export default function Meetings() {
                         </button>
                       ) : null}
                       {user ? (
-                        <button
-                          type="button"
-                          onClick={() => handleSendNotification(item)}
-                          disabled={sendingNotification}
-                          className="rounded-xl border border-[#1f498c] px-3 py-2 text-sm font-semibold text-[#1f498c] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {sendingNotification ? "Sending..." : "Send notification"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowNotificationEmailEditor(true);
+                              setNotificationEmailEditorDesignation("");
+                              setNotificationEmailDrafts(notificationEmailConfig);
+                            }}
+                            className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Manage email addresses
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendNotification(item)}
+                            disabled={sendingNotification}
+                            className="rounded-xl border border-[#1f498c] px-3 py-2 text-sm font-semibold text-[#1f498c] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {sendingNotification ? "Sending..." : "Send notification"}
+                          </button>
+                        </div>
                       ) : null}
                     </div>
                   </div>
@@ -688,23 +739,61 @@ export default function Meetings() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Notify officials</label>
-                <select
-                  multiple
-                  value={scheduleForm.recipients}
-                  onChange={(event) => setScheduleForm({ ...scheduleForm, recipients: Array.from(event.target.selectedOptions, (option) => option.value) })}
-                  className="h-40 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                >
+                <div className="max-h-48 space-y-2 overflow-auto rounded-xl border border-gray-200 p-3 text-sm">
                   {authorityOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <label key={option.value} className="flex items-center gap-2 rounded-lg border border-transparent px-2 py-1 hover:border-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={scheduleForm.recipients.includes(option.value)}
+                        onChange={() => handleToggleRecipient(option.value)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
                   ))}
-                </select>
-                <p className="mt-2 text-xs text-gray-500">Hold Ctrl/Cmd to select more than one official.</p>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Select one or more officials for the notification.</p>
               </div>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setScheduleModalOpen(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Cancel</button>
                 <button type="submit" className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white">Save</button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showNotificationEmailEditor ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4 py-8">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Notification email addresses</h3>
+                <p className="text-sm text-gray-500">Save email addresses for each designation. Admin only.</p>
+              </div>
+              <button type="button" onClick={() => setShowNotificationEmailEditor(false)} className="text-gray-400 hover:text-gray-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-5 space-y-3">
+              {authorityOptions.map((option) => (
+                <div key={option.value} className="rounded-xl border border-gray-200 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-sm font-semibold text-gray-700">{option.label}</label>
+                    <span className="text-xs text-gray-400">{notificationEmailDrafts[option.value] ? 'Saved' : 'Pending'}</span>
+                  </div>
+                  <input
+                    value={notificationEmailDrafts[option.value] || ""}
+                    onChange={(event) => handleSetEmailDraft(option.value, event.target.value)}
+                    placeholder="name@domain.com"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowNotificationEmailEditor(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Cancel</button>
+              <button type="button" onClick={handleSaveNotificationEmails} className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white">Save emails</button>
+            </div>
           </div>
         </div>
       ) : null}
