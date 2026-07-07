@@ -48,9 +48,24 @@ export async function writeRequests(list) {
 
 export async function addRequest(entry) {
   const list = await readRequests();
-  const next = [entry, ...list.filter((i) => i.email !== entry.email)];
+  const filtered = list.filter((item) => {
+    if (item.email !== entry.email) return true;
+    return item.status === 'rejected' ? false : true;
+  });
+  const next = [entry, ...filtered];
   await writeRequests(next);
   return next;
+}
+
+export async function clearAllRequests() {
+  const cleared = [];
+  writeLocal(cleared);
+  try {
+    await writeSharedJsonFile("app-data/access-requests.json", cleared);
+  } catch (e) {
+    // ignore
+  }
+  return cleared;
 }
 
 export async function updateRequestStatus(email, status) {

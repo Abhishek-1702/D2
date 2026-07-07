@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, addRequest, updateRequestStatus, getRequestByEmail } from "../utils/accessRequests";
+import { readRequests, addRequest, updateRequestStatus, getRequestByEmail, clearAllRequests } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { reauthenticateUser, updateUserPassword } from "../firebase";
@@ -204,7 +204,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     }
 
     const existingRequest = await getRequestByEmail(normalizedEmail);
-    if (existingRequest) {
+    if (existingRequest && existingRequest.status !== 'rejected') {
       setRequestError('Email already used');
       return;
     }
@@ -227,6 +227,12 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     // show confirmation
     // eslint-disable-next-line no-alert
     alert('Access request submitted — pending approval.');
+  };
+
+  const clearRequests = async () => {
+    if (!window.confirm('Clear all access requests?')) return;
+    await clearAllRequests();
+    await loadRequests();
   };
 
   const grantRequest = async (emailToGrant) => {
@@ -886,7 +892,10 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
         <div onClick={() => setAdminModalOpen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[#1f498c]">Access requests</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-[#1f498c]">Access requests</h2>
+                <button onClick={clearRequests} className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Clear all</button>
+              </div>
               <button onClick={() => setAdminModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
             </div>
             <div className="space-y-3 max-h-[60vh] overflow-auto">
