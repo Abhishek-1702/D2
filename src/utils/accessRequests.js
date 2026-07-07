@@ -13,10 +13,16 @@ function readLocal() {
   }
 }
 
+function dispatchRequestUpdateEvent(list) {
+  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  window.dispatchEvent(new CustomEvent("kesco-access-requests-updated", { detail: { requests: list } }));
+}
+
 function writeLocal(list) {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    dispatchRequestUpdateEvent(list);
     return true;
   } catch (e) {
     console.error("writeLocal access requests failed", e);

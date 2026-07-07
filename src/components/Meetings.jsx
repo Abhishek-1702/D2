@@ -764,21 +764,35 @@ export default function Meetings() {
       ) : null}
 
       {showNotificationEmailEditor ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4 py-8">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notification-email-title"
+          onClick={() => setShowNotificationEmailEditor(false)}
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4 py-8"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto"
+          >
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Notification email addresses</h3>
+                <h3 id="notification-email-title" className="text-xl font-semibold text-gray-900">Notification email addresses</h3>
                 <p className="text-sm text-gray-500">Save email addresses for each designation. Admin only.</p>
               </div>
-              <button type="button" onClick={() => setShowNotificationEmailEditor(false)} className="text-gray-400 hover:text-gray-700">
+              <button
+                type="button"
+                onClick={() => setShowNotificationEmailEditor(false)}
+                aria-label="Close notification email editor"
+                className="rounded-full border border-gray-200 bg-white p-2 text-gray-500 transition hover:border-gray-300 hover:text-gray-700"
+              >
                 <X size={18} />
               </button>
             </div>
             <div className="mt-5 space-y-3">
               {authorityOptions.map((option) => (
-                <div key={option.value} className="rounded-xl border border-gray-200 p-3">
-                  <div className="mb-2 flex items-center justify-between">
+                <div key={option.value} className="rounded-2xl border border-gray-200 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
                     <label className="text-sm font-semibold text-gray-700">{option.label}</label>
                     <span className="text-xs text-gray-400">{notificationEmailDrafts[option.value] ? 'Saved' : 'Pending'}</span>
                   </div>
@@ -791,9 +805,21 @@ export default function Meetings() {
                 </div>
               ))}
             </div>
-            <div className="mt-5 flex justify-end gap-3">
-              <button type="button" onClick={() => setShowNotificationEmailEditor(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Cancel</button>
-              <button type="button" onClick={handleSaveNotificationEmails} className="rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white">Save emails</button>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowNotificationEmailEditor(false)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNotificationEmails}
+                className="w-full rounded-xl bg-[#1f498c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#163c72] sm:w-auto"
+              >
+                Save emails
+              </button>
             </div>
           </div>
         </div>

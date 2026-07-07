@@ -39,9 +39,11 @@ export default function AccessRequests({ onBack }) {
 
     window.addEventListener('focus', handleRefresh);
     window.addEventListener('storage', handleRefresh);
+    window.addEventListener('kesco-access-requests-updated', handleRefresh);
     return () => {
       window.removeEventListener('focus', handleRefresh);
       window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('kesco-access-requests-updated', handleRefresh);
     };
   }, []);
 

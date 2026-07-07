@@ -1,0 +1,5 @@
+{
+    "CodeGPT.apiKey": "Ollama",
+    "chat.utilityModel": "anthropic/claude-opus-4-8",
+    "chat.utilitySmallModel": "anthropic/claude-opus-4-8"
+}

@@ -167,10 +167,20 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
         // ignore
       }
     };
-    load();
-    return () => { mounted = false; };
-  }, []);
 
+    const handleRequestUpdate = () => {
+      load();
+    };
+
+    load();
+    window.addEventListener('storage', handleRequestUpdate);
+    window.addEventListener('kesco-access-requests-updated', handleRequestUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener('storage', handleRequestUpdate);
+      window.removeEventListener('kesco-access-requests-updated', handleRequestUpdate);
+    };
+  }, []);
 
   const openRequestModal = () => {
     setRequestForm({ name: '', mobile: '', email: '', designationOption: '', designationCustom: '', office: '' });
