@@ -77,6 +77,7 @@ export default function Meetings() {
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
   const [selectedPosition, setSelectedPosition] = useState("");
+  const [authorityPath, setAuthorityPath] = useState([]);
   const [customDesignation, setCustomDesignation] = useState("");
   const [personName, setPersonName] = useState("");
   const [meetingConductedBy, setMeetingConductedBy] = useState("");
@@ -105,18 +106,34 @@ export default function Meetings() {
   const canManageDocuments = isAdminUser(user);
   const authorityOptions = getAuthorityOptions();
 
-  function buildMeetingAuthorityOptions(nodes = AUTHORITY_HIERARCHY, depth = 0) {
-    return nodes.flatMap((node) => {
-      const prefix = depth > 0 ? "\u00A0".repeat(depth * 2) : "";
-      const option = { label: `${prefix}${node.label}`, value: node.label };
-      if (!Array.isArray(node.children) || node.children.length === 0) {
-        return [option];
-      }
-      return [option, ...buildMeetingAuthorityOptions(node.children, depth + 1)];
-    });
+  function getAuthorityOptionsAtLevel(level) {
+    if (level === 0) {
+      return AUTHORITY_HIERARCHY;
+    }
+
+    const parentNode = authorityPath[level - 1];
+    return parentNode?.children || [];
   }
 
-  const meetingAuthorityOptions = buildMeetingAuthorityOptions();
+  function getAuthorityDropdownLevels() {
+    const levels = [];
+    let currentOptions = AUTHORITY_HIERARCHY;
+    let level = 0;
+
+    while (Array.isArray(currentOptions) && currentOptions.length > 0) {
+      levels.push(currentOptions);
+      const selected = authorityPath[level];
+      if (!selected || !Array.isArray(selected.children) || selected.children.length === 0 || selectedPosition === "other") {
+        break;
+      }
+      currentOptions = selected.children;
+      level += 1;
+    }
+
+    return levels;
+  }
+
+  const authorityDropdownLevels = getAuthorityDropdownLevels();
 
   const persistMeetingsState = async (nextMeetings) => {
     try {
@@ -431,11 +448,30 @@ export default function Meetings() {
     setScheduleForm({ ...scheduleForm, recipients: nextRecipients });
   };
 
-  const handleDesignationChange = (value) => {
-    setSelectedPosition(value);
-    if (value !== "other") {
+  const handleDesignationChange = (level, value) => {
+    if (value === "") {
+      const nextPath = authorityPath.slice(0, level);
+      setAuthorityPath(nextPath);
+      setSelectedPosition(nextPath.length ? nextPath[nextPath.length - 1].label : "");
       setCustomDesignation("");
+      return;
     }
+
+    if (value === "other") {
+      setAuthorityPath(authorityPath.slice(0, level));
+      setSelectedPosition("other");
+      setCustomDesignation("");
+      return;
+    }
+
+    const options = getAuthorityOptionsAtLevel(level);
+    const selectedNode = options.find((option) => option.label === value);
+    if (!selectedNode) return;
+
+    const nextPath = [...authorityPath.slice(0, level), selectedNode];
+    setAuthorityPath(nextPath);
+    setSelectedPosition(selectedNode.label);
+    setCustomDesignation("");
   };
 
   const handleSaveNotificationEmails = async () => {
@@ -509,18 +545,21 @@ export default function Meetings() {
         <form onSubmit={handleAddMeeting} className="space-y-4 max-w-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="space-y-3">
             <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Authority position</label>
-            <div className="flex flex-col gap-3 md:flex-row">
-              <select
-                value={selectedPosition}
-                onChange={(e) => handleDesignationChange(e.target.value)}
-                className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
-              >
-                <option value="">Choose designation</option>
-                {meetingAuthorityOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-                <option value="other">Others</option>
-              </select>
+            <div className="flex flex-wrap gap-3">
+              {authorityDropdownLevels.map((options, level) => (
+                <select
+                  key={`authority-level-${level}`}
+                  value={authorityPath[level]?.label || ""}
+                  onChange={(e) => handleDesignationChange(level, e.target.value)}
+                  className="min-w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800"
+                >
+                  <option value="">Select designation</option>
+                  {options.map((option) => (
+                    <option key={option.label} value={option.label}>{option.label}</option>
+                  ))}
+                  {level === authorityDropdownLevels.length - 1 && <option value="other">Others</option>}
+                </select>
+              ))}
               {selectedPosition === "other" ? (
                 <input
                   value={customDesignation}

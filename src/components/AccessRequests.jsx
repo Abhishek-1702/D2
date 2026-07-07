@@ -5,6 +5,31 @@ import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersis
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
 
+const generateStrongPassword = () => {
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+  const all = `${lower}${upper}${digits}${symbols}`;
+
+  const ensure = [
+    lower[Math.floor(Math.random() * lower.length)],
+    upper[Math.floor(Math.random() * upper.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+    symbols[Math.floor(Math.random() * symbols.length)],
+  ];
+
+  let password = ensure.concat(Array.from({ length: 12 }, () => all[Math.floor(Math.random() * all.length)])).join("");
+  password = password.split("").sort(() => 0.5 - Math.random()).join("");
+  return password;
+};
+
+const buildEmailLink = (email, subject, body) => {
+  const encodedSubject = encodeURIComponent(subject);
+  const encodedBody = encodeURIComponent(body);
+  return `mailto:${email}?subject=${encodedSubject}&body=${encodedBody}`;
+};
+
 export default function AccessRequests({ onBack }) {
   const { user } = useAuth();
   const OWNER_EMAIL = process.env.REACT_APP_OWNER_EMAIL || null;
@@ -91,7 +116,7 @@ export default function AccessRequests({ onBack }) {
     if (!request || processingRequest) return;
     setProcessingRequest(email);
 
-    const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1`;
+    const tempPassword = generateStrongPassword();
     const requestedDesignation = (request.designation || request.rawDesignation || "").trim();
     if (requestedDesignation) {
       registerAuthorityOption(requestedDesignation);

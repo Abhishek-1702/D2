@@ -1,3 +1,4 @@
+import { isSupabaseConfigured, supabase } from "../supabase";
 import { readSharedJsonFile, writeSharedJsonFile } from "./documentPersistence";
 
 const STORAGE_KEY = "kesco_access_requests_v1";
@@ -92,29 +93,90 @@ function writeLocal(list, notify = true) {
   }
 }
 
-export async function readRequests() {
-  const local = readLocal();
+async function readRemoteRequestsFromSupabase() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("access_requests")
+      .select("*")
+      .order("updatedAt", { ascending: false });
+
+    if (error) {
+      console.error("Failed to read access requests from Supabase", error);
+      return null;
+    }
+
+    return Array.isArray(data) ? data.map(normalizeRequestEntry).filter(Boolean) : [];
+  } catch (error) {
+    console.error("Unexpected Supabase access requests read error", error);
+    return null;
+  }
+}
+
+async function writeRemoteRequestsToSupabase(list) {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
+  try {
+    const { error } = await supabase.from("access_requests").upsert(normalized, { onConflict: "email" });
+    if (error) {
+      console.error("Failed to write access requests to Supabase", error);
+      return null;
+    }
+    return normalized;
+  } catch (error) {
+    console.error("Unexpected Supabase access requests write error", error);
+    return null;
+  }
+}
+
+async function readRemoteRequests() {
+  const dbResult = await readRemoteRequestsFromSupabase();
+  if (dbResult !== null) {
+    return dbResult;
+  }
+
   try {
     const remote = await readSharedJsonFile("app-data/access-requests.json");
-    if (Array.isArray(remote)) {
-      const merged = mergeRequests(local, remote);
-      if (JSON.stringify(merged) !== JSON.stringify(local)) {
-        writeLocal(merged, false);
-      }
-      if (JSON.stringify(merged) !== JSON.stringify(remote)) {
-        try {
-          await writeSharedJsonFile("app-data/access-requests.json", merged);
-        } catch (e) {
-          // ignore remote refresh failures
-        }
-      }
-      if (JSON.stringify(merged) !== JSON.stringify(local)) {
-        dispatchRequestUpdateEvent(merged);
-      }
-      return merged;
+    if (!Array.isArray(remote)) {
+      return null;
     }
+    return remote.map(normalizeRequestEntry).filter(Boolean);
   } catch (e) {
-    // ignore remote failure and fall back to local cache
+    console.error('Failed to read remote access requests', e);
+    return null;
+  }
+}
+
+async function writeRemoteRequests(list) {
+  const dbResult = await writeRemoteRequestsToSupabase(list);
+  if (dbResult !== null) {
+    return dbResult;
+  }
+
+  const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
+  try {
+    await writeSharedJsonFile("app-data/access-requests.json", normalized);
+  } catch (e) {
+    console.error('Failed to persist access requests to shared storage', e);
+  }
+  return normalized;
+}
+
+export async function readRequests() {
+  const local = readLocal();
+  const remote = await readRemoteRequests();
+  if (remote) {
+    const merged = mergeRequests(local, remote);
+    if (JSON.stringify(merged) !== JSON.stringify(local)) {
+      writeLocal(merged, false);
+    }
+    if (JSON.stringify(merged) !== JSON.stringify(remote)) {
+      await writeRemoteRequests(merged);
+    }
+    if (JSON.stringify(merged) !== JSON.stringify(local)) {
+      dispatchRequestUpdateEvent(merged);
+    }
+    return merged;
   }
   return local;
 }
@@ -126,11 +188,7 @@ export function readCachedRequests() {
 export async function writeRequests(list) {
   const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
   writeLocal(normalized);
-  try {
-    await writeSharedJsonFile("app-data/access-requests.json", normalized);
-  } catch (e) {
-    console.error('Failed to persist access requests to shared storage', e);
-  }
+  await writeRemoteRequests(normalized);
   return normalized;
 }
 
@@ -154,11 +212,7 @@ export async function addRequest(entry) {
 export async function clearAllRequests() {
   const cleared = [];
   writeLocal(cleared);
-  try {
-    await writeSharedJsonFile("app-data/access-requests.json", cleared);
-  } catch (e) {
-    // ignore
-  }
+  await writeRemoteRequests(cleared);
   return cleared;
 }
 
