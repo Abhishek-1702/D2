@@ -1,4 +1,5 @@
 import { AUTHORITY_HIERARCHY, getAuthorityOptions, getDesignationDisplayLabel, registerAuthorityOption, resolveMeetingDesignation } from './officers';
+import { mergeSectionDocuments } from '../utils/documentPersistence';
 
 describe('authority hierarchy', () => {
   it('keeps the hierarchy data available for reference', () => {
@@ -30,5 +31,15 @@ describe('authority hierarchy', () => {
 
   it('keeps the meeting designation resolver simple', () => {
     expect(resolveMeetingDesignation('Executive Engineer')).toBe('Executive Engineer');
+  });
+
+  it('merges remote and local project documents without duplicates', () => {
+    const remoteDocuments = [{ id: 'remote-1', name: 'Remote report', url: 'https://example.com/remote' }];
+    const localDocuments = [{ id: 'remote-1', name: 'Remote report', url: 'https://example.com/remote' }, { id: 'local-1', name: 'Local report', url: 'https://example.com/local' }];
+
+    const merged = mergeSectionDocuments(remoteDocuments, localDocuments);
+
+    expect(merged).toHaveLength(2);
+    expect(merged.map((doc) => doc.id)).toEqual(['remote-1', 'local-1']);
   });
 });

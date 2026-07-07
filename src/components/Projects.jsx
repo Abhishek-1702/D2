@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { PROJECTS } from "../data/projects";
 import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supabase";
-import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, writeSharedJsonFile } from "../utils/documentPersistence";
+import { appendSectionDocument, buildUploadedDocument, getSectionDocuments, getStoragePathFromUrl, isAdminUser, mergeSectionDocuments, readSharedJsonFile, removeSectionDocument, writeSharedJsonFile } from "../utils/documentPersistence";
 import { useAuth } from "../contexts/AuthContext";
 import Toast from "./Toast";
 
@@ -122,19 +122,20 @@ export default function Projects() {
         const key = 'projects_links_v1';
         const store = JSON.parse(localStorage.getItem(key) || '{}');
         const remoteProjects = await readSharedJsonFile('app-data/projects-state.json');
-        // build a projects array from local store and remote state
         const remoteById = Array.isArray(remoteProjects)
           ? Object.fromEntries(remoteProjects.map((project) => [project.id, project]))
           : {};
         const updated = PROJECTS.map((p) => {
           const remoteProject = remoteById[p.id] || {};
+          const localDocuments = getSectionDocuments('project', p.id);
+          const mergedDocuments = mergeSectionDocuments(remoteProject.documents, localDocuments);
           return {
             ...p,
             ...remoteProject,
             links: remoteProject.links || store[p.id] || p.links || [],
             ppt: remoteProject.ppt || p.ppt || null,
             pptName: remoteProject.pptName || p.pptName || null,
-            documents: remoteProject.documents || getSectionDocuments("project", p.id) || p.documents || [],
+            documents: mergedDocuments.length > 0 ? mergedDocuments : (remoteProject.documents || p.documents || []),
           };
         });
         if (mounted) setProjects(updated);
@@ -146,8 +147,22 @@ export default function Projects() {
       }
     };
 
-    loadProjectState();
-    return () => { mounted = false; };
+    void loadProjectState();
+
+    const handleRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        void loadProjectState();
+      }
+    };
+
+    window.addEventListener('focus', handleRefresh);
+    document.addEventListener('visibilitychange', handleRefresh);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', handleRefresh);
+      document.removeEventListener('visibilitychange', handleRefresh);
+    };
   }, []);
 
   const handlePptUpload = async (e) => {

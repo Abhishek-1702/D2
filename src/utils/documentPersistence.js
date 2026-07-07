@@ -36,6 +36,21 @@ export function saveSectionDocuments(sectionType, sectionId, documents) {
   return store[key];
 }
 
+export function mergeSectionDocuments(remoteDocuments, fallbackDocuments) {
+  const remote = Array.isArray(remoteDocuments) ? remoteDocuments : [];
+  const fallback = Array.isArray(fallbackDocuments) ? fallbackDocuments : [];
+  const merged = [];
+  const seen = new Set();
+
+  [...remote, ...fallback].forEach((doc) => {
+    if (!doc || !doc.id || seen.has(doc.id)) return;
+    seen.add(doc.id);
+    merged.push(doc);
+  });
+
+  return merged;
+}
+
 export function appendSectionDocument(sectionType, sectionId, document) {
   const existing = getSectionDocuments(sectionType, sectionId);
   const next = [document, ...existing.filter((item) => item.id !== document.id)];
