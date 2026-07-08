@@ -126,6 +126,16 @@ async function writeRemoteRequestsToSupabase(list) {
   const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
   console.debug("Writing access requests to Supabase", normalized.length, "records");
   try {
+    if (normalized.length === 0) {
+      const { error } = await supabase.from("access_requests").delete().not("id", "is", null);
+      if (error) {
+        console.error("Failed to delete all access requests from Supabase", error);
+        return null;
+      }
+      console.debug("Supabase access requests cleared successfully");
+      return normalized;
+    }
+
     // Map fields to the Supabase table column names (lowercase) to avoid schema errors
     const remoteRows = normalized.map((r) => ({
       name: r.name || null,
@@ -245,10 +255,7 @@ export async function addRequest(entry) {
 }
 
 export async function clearAllRequests() {
-  const list = await readRequests();
-  // Remove only pending requests when clearing all from the UI.
-  // Rejected and approved records are preserved for manual review/deletion.
-  const next = list.filter((r) => r.status !== 'pending');
+  const next = [];
   await writeRequests(next);
   return next;
 }
@@ -272,12 +279,19 @@ export async function getRequestByEmail(email) {
   return list.find((r) => r.email === email) || null;
 }
 
+export async function isEmailApproved(email) {
+  if (!email) return false;
+  const request = await getRequestByEmail(email.toLowerCase());
+  return request?.status === 'approved';
+}
+
 const accessRequestsAPI = {
   readRequests,
   writeRequests,
   addRequest,
   updateRequestStatus,
   getRequestByEmail,
+  isEmailApproved,
 };
 
 export default accessRequestsAPI;

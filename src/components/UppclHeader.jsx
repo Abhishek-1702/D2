@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, LogOut, Menu, X, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, readCachedRequests, addRequest, updateRequestStatus, getRequestByEmail, clearAllRequests } from "../utils/accessRequests";
+import { readRequests, readCachedRequests, addRequest, updateRequestStatus, getRequestByEmail, clearAllRequests, isEmailApproved } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser, reauthenticateUser, updateUserPassword } from "../firebase";
 import { getAuthorityOptions } from "../utils/meetingNotifications";
@@ -19,6 +19,7 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [requestsLoaded, setRequestsLoaded] = useState(false);
   const [dateTime, setDateTime] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -167,9 +168,12 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     const load = async () => {
       try {
         const items = await readRequests();
-        if (mounted) setRequests(items);
+        if (mounted) {
+          setRequests(items);
+          setRequestsLoaded(true);
+        }
       } catch (e) {
-        // ignore
+        if (mounted) setRequestsLoaded(true);
       }
     };
 
@@ -197,6 +201,37 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
       window.removeEventListener('kesco-access-requests-updated', handleRequestUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.email || !requestsLoaded) return;
+
+    let active = true;
+    const verifyAccess = async () => {
+      try {
+        if (!active) return;
+        if (user.email.toLowerCase() === OWNER_EMAIL?.toLowerCase()) return;
+        const approved = await isEmailApproved(user.email);
+        if (!approved) {
+          await signOut();
+          setAuthError('Your access request was revoked or deleted.');
+          setModalOpen(false);
+        }
+      } catch (error) {
+        console.error('Failed to verify authorised access', error);
+      }
+    };
+
+    void verifyAccess();
+    const handleFocus = () => {
+      void verifyAccess();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user, OWNER_EMAIL, requestsLoaded, requests, signOut]);
 
   const openRequestModal = () => {
     setRequestForm({ name: '', mobile: '', email: '', designationOption: '', designationCustom: '', office: '' });
@@ -326,8 +361,17 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
     clearAuthError();
     setLoading(true);
     try {
-      const signedIn = await signIn(email.trim(), password);
+      const trimmedEmail = email.trim();
+      const signedIn = await signIn(trimmedEmail, password);
       if (signedIn) {
+        if (trimmedEmail.toLowerCase() !== OWNER_EMAIL?.toLowerCase()) {
+          const approved = await isEmailApproved(trimmedEmail);
+          if (!approved) {
+            await signOut();
+            setAuthError('Your access request was revoked or deleted.');
+            return;
+          }
+        }
         setModalOpen(false);
       }
     } finally {
