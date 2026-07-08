@@ -25,7 +25,7 @@ export const PROJECTS = [
       "Peak demand prediction report",
       "Planning recommendations document",
     ],
-    progress: 30,
+    progress: 65,
     updates: [
       {
         date: "2026-06-10",
@@ -105,7 +105,7 @@ export const PROJECTS = [
       "Usage pattern graphs",
       "Energy saving recommendations",
     ],
-    progress: 40,
+    progress: 60,
     updates: [
       {
         date: "2026-06-10",
@@ -170,7 +170,7 @@ export const PROJECTS = [
       "High-loss area identification map",
       "Improvement suggestions and action plan",
     ],
-    progress: 30,
+    progress: 60,
     updates: [
       {
         date: "2026-06-10",
@@ -239,7 +239,7 @@ export const PROJECTS = [
       "Resolution efficiency analysis",
       "Service improvement action plan",
     ],
-    progress: 60,
+    progress: 85,
     updates: [
       {
         date: "2026-06-10",

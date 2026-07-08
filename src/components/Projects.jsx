@@ -132,9 +132,9 @@ export default function Projects() {
           return {
             ...p,
             ...remoteProject,
-            links: remoteProject.links || store[p.id] || p.links || [],
-            ppt: remoteProject.ppt || p.ppt || null,
-            pptName: remoteProject.pptName || p.pptName || null,
+            links: remoteProject.links != null ? remoteProject.links : (store[p.id] || p.links || []),
+            ppt: remoteProject.ppt != null ? remoteProject.ppt : (p.ppt || null),
+            pptName: remoteProject.pptName != null ? remoteProject.pptName : (p.pptName || null),
             documents: mergedDocuments.length > 0 ? mergedDocuments : (remoteProject.documents || p.documents || []),
           };
         });

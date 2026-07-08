@@ -128,7 +128,6 @@ async function writeRemoteRequestsToSupabase(list) {
   try {
     // Map fields to the Supabase table column names (lowercase) to avoid schema errors
     const remoteRows = normalized.map((r) => ({
-      id: r.id,
       name: r.name || null,
       mobile: r.mobile || null,
       email: r.email || null,
