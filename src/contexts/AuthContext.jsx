@@ -2,7 +2,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { isFirebaseConfigured, signInWithEmailPassword, registerWithEmailPassword, signOutUser, onAuthChange } from '../firebase';
 
-const AuthContext = createContext({ user: null, signIn: async () => {}, register: async () => {}, signOut: async () => {} });
+const AuthContext = createContext({
+  user: null,
+  signIn: async () => {},
+  register: async () => {},
+  signOut: async () => {},
+  authError: null,
+  setAuthError: () => {},
+  clearAuthError: () => {},
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -63,7 +71,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, register, signOut, authError, clearAuthError: () => setAuthError(null) }}>
+    <AuthContext.Provider value={{ user, signIn, register, signOut, authError, setAuthError, clearAuthError: () => setAuthError(null) }}>
       {children}
     </AuthContext.Provider>
   );

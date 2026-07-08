@@ -9,7 +9,7 @@ import { getAuthorityOptions } from "../utils/meetingNotifications";
 import { registerAuthorityOption } from "../data/officers";
 
 export default function UppclHeader({ activeTab, setActiveTab, language = 'en', setLanguage }) {
-  const { user, signIn, signOut, authError, clearAuthError } = useAuth();
+  const { user, signIn, signOut, authError, setAuthError, clearAuthError } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requests, setRequests] = useState([]);
