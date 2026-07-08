@@ -60,12 +60,12 @@ export const PROJECTS = [
     
     chartData: {
       bar: [
-        { month: "Jan", forecast: 0, actual: 0 },
-        { month: "Feb", forecast: 0, actual: 0 },
-        { month: "Mar", forecast: 0, actual: 0 },
-        { month: "Apr", forecast: 1, actual: 2 },
-        { month: "May", forecast: 0, actual: 0 },
-        { month: "Jun", forecast: 4, actual: 5 },
+        { month: "Jan", forecast: 10, actual: 12 },
+        { month: "Feb", forecast: 15, actual: 16 },
+        { month: "Mar", forecast: 20, actual: 22 },
+        { month: "Apr", forecast: 25, actual: 27 },
+        { month: "May", forecast: 30, actual: 32 },
+        { month: "Jun", forecast: 35, actual: 38 },
       ],
       line: [
         { day: "Mon", load: 4 },
