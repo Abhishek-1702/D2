@@ -3,6 +3,7 @@ import { readSharedJsonFile, writeSharedJsonFile } from "./documentPersistence";
 
 const STORAGE_KEY = "kesco_access_requests_v1";
 const SYNC_KEY = "kesco_access_requests_sync_v1";
+let lastSupabaseWriteError = null;
 
 function readLocal() {
   if (typeof window === "undefined") return [];
@@ -119,6 +120,7 @@ async function readRemoteRequestsFromSupabase() {
 }
 
 async function writeRemoteRequestsToSupabase(list) {
+  lastSupabaseWriteError = null;
   if (!isSupabaseConfigured || !supabase) {
     console.debug("Supabase not configured, skipping remote access request write.");
     return null;
@@ -129,6 +131,7 @@ async function writeRemoteRequestsToSupabase(list) {
     if (normalized.length === 0) {
       const { error } = await supabase.from("access_requests").delete().not("id", "is", null);
       if (error) {
+        lastSupabaseWriteError = error;
         console.error("Failed to delete all access requests from Supabase", error);
         return null;
       }
@@ -150,13 +153,103 @@ async function writeRemoteRequestsToSupabase(list) {
 
     const { error } = await supabase.from("access_requests").upsert(remoteRows, { onConflict: "email" });
     if (error) {
+      lastSupabaseWriteError = error;
       console.error("Failed to write access requests to Supabase", error);
       return null;
     }
     console.debug("Supabase access requests upsert succeeded");
     return normalized;
   } catch (error) {
+    lastSupabaseWriteError = error;
     console.error("Unexpected Supabase access requests write error", error);
+    return null;
+  }
+}
+
+async function writeRemoteRequestToSupabase(entry) {
+  lastSupabaseWriteError = null;
+  if (!isSupabaseConfigured || !supabase) {
+    return null;
+  }
+
+  const normalized = normalizeRequestEntry(entry);
+  if (!normalized) return null;
+
+  const remoteRow = {
+    name: normalized.name || null,
+    mobile: normalized.mobile || null,
+    email: normalized.email || null,
+    designation: normalized.designation || null,
+    office: normalized.office || null,
+    status: normalized.status || null,
+    createdat: normalized.createdat || normalized.createdAt || new Date().toISOString(),
+    updatedat: normalized.updatedat || normalized.updatedAt || normalized.createdat || new Date().toISOString(),
+  };
+
+  try {
+    const { error } = await supabase.from("access_requests").upsert([remoteRow], { onConflict: "email" });
+    if (error) {
+      lastSupabaseWriteError = error;
+      console.error("Failed to write access request to Supabase", error);
+      return null;
+    }
+    return normalized;
+  } catch (error) {
+    lastSupabaseWriteError = error;
+    console.error("Unexpected Supabase access request write error", error);
+    return null;
+  }
+}
+
+async function updateRemoteRequestStatus(email, status) {
+  lastSupabaseWriteError = null;
+  if (!isSupabaseConfigured || !supabase) {
+    return null;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("access_requests")
+      .update({ status, updatedat: new Date().toISOString() })
+      .eq("email", String(email || "").toLowerCase());
+
+    if (error) {
+      lastSupabaseWriteError = error;
+      console.error("Failed to update access request status in Supabase", error);
+      return null;
+    }
+    return true;
+  } catch (error) {
+    lastSupabaseWriteError = error;
+    console.error("Unexpected Supabase access request status update error", error);
+    return null;
+  }
+}
+
+async function deleteRemoteRequest(identifier) {
+  lastSupabaseWriteError = null;
+  if (!isSupabaseConfigured || !supabase) {
+    return null;
+  }
+
+  const normalizedIdentifier = String(identifier || "").toLowerCase();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(identifier || ""));
+
+  try {
+    const query = supabase.from("access_requests").delete();
+    const { error } = isUuid
+      ? await query.or(`id.eq.${identifier},email.eq.${normalizedIdentifier}`)
+      : await query.eq("email", normalizedIdentifier);
+
+    if (error) {
+      lastSupabaseWriteError = error;
+      console.error("Failed to delete access request from Supabase", error);
+      return null;
+    }
+    return true;
+  } catch (error) {
+    lastSupabaseWriteError = error;
+    console.error("Unexpected Supabase access request delete error", error);
     return null;
   }
 }
@@ -221,6 +314,34 @@ export async function readRequests() {
   return local;
 }
 
+export function subscribeToAccessRequestChanges(onChange) {
+  if (!isSupabaseConfigured || !supabase) {
+    return () => {};
+  }
+
+  const channel = supabase
+    .channel("access-requests-admin")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "access_requests" },
+      (payload) => {
+        if (typeof onChange === "function") {
+          onChange(payload);
+        }
+      }
+    )
+    .subscribe((status, error) => {
+      if (error) {
+        console.error("Access request realtime subscription failed", error);
+      }
+      console.debug("Access request realtime status", status);
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 export function readCachedRequests() {
   return readLocal();
 }
@@ -228,11 +349,19 @@ export function readCachedRequests() {
 export async function writeRequests(list) {
   const normalized = (Array.isArray(list) ? list : []).map(normalizeRequestEntry).filter(Boolean);
   console.debug("Persisting access requests locally", normalized.length, "records");
-  writeLocal(normalized);
-  const remoteResult = await writeRemoteRequests(normalized);
-  if (remoteResult === null) {
-    console.warn("Remote access requests persistence failed, local copy only.");
+
+  if (isSupabaseConfigured) {
+    const remoteResult = await writeRemoteRequestsToSupabase(normalized);
+    if (remoteResult === null) {
+      const message = lastSupabaseWriteError?.message || "Supabase rejected the access request write.";
+      throw new Error(`Unable to save access request to Supabase: ${message}`);
+    }
+    writeLocal(remoteResult);
+    return remoteResult;
   }
+
+  writeLocal(normalized);
+  await writeRemoteRequests(normalized);
   return normalized;
 }
 
@@ -250,6 +379,16 @@ export async function addRequest(entry) {
   }
 
   const next = [normalizedEntry, ...list.filter((item) => item.email !== normalizedEntry.email)];
+  if (isSupabaseConfigured) {
+    const remoteResult = await writeRemoteRequestToSupabase(normalizedEntry);
+    if (remoteResult === null) {
+      const message = lastSupabaseWriteError?.message || "Supabase rejected the access request write.";
+      throw new Error(`Unable to save access request to Supabase: ${message}`);
+    }
+    writeLocal(next);
+    return next;
+  }
+
   await writeRequests(next);
   return next;
 }
@@ -263,6 +402,16 @@ export async function clearAllRequests() {
 export async function deleteRequest(identifier) {
   const list = await readRequests();
   const next = list.filter((r) => (r.id !== identifier && r.email !== identifier));
+  if (isSupabaseConfigured) {
+    const remoteResult = await deleteRemoteRequest(identifier);
+    if (remoteResult === null) {
+      const message = lastSupabaseWriteError?.message || "Supabase rejected the access request delete.";
+      throw new Error(`Unable to delete access request from Supabase: ${message}`);
+    }
+    writeLocal(next);
+    return next;
+  }
+
   await writeRequests(next);
   return next;
 }
@@ -270,6 +419,16 @@ export async function deleteRequest(identifier) {
 export async function updateRequestStatus(email, status) {
   const list = await readRequests();
   const next = list.map((r) => (r.email === email ? { ...normalizeRequestEntry(r), status, updatedAt: new Date().toISOString() } : normalizeRequestEntry(r)));
+  if (isSupabaseConfigured) {
+    const remoteResult = await updateRemoteRequestStatus(email, status);
+    if (remoteResult === null) {
+      const message = lastSupabaseWriteError?.message || "Supabase rejected the access request status update.";
+      throw new Error(`Unable to update access request in Supabase: ${message}`);
+    }
+    writeLocal(next);
+    return next;
+  }
+
   await writeRequests(next);
   return next;
 }
@@ -292,6 +451,7 @@ const accessRequestsAPI = {
   updateRequestStatus,
   getRequestByEmail,
   isEmailApproved,
+  subscribeToAccessRequestChanges,
 };
 
 export default accessRequestsAPI;
@@ -304,11 +464,9 @@ export async function forceRemoteSync() {
       return null;
     }
 
-    const local = readLocal();
-    const merged = mergeRequests(local, remote);
-    await writeRequests(merged);
-    console.debug('forceRemoteSync: merged and wrote', merged.length, 'records');
-    return merged;
+    writeLocal(remote);
+    console.debug('forceRemoteSync: loaded remote records', remote.length);
+    return remote;
   } catch (error) {
     console.error('forceRemoteSync failed', error);
     return null;

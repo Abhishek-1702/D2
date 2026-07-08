@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests, forceRemoteSync, deleteRequest } from "../utils/accessRequests";
+import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests, forceRemoteSync, deleteRequest, subscribeToAccessRequestChanges } from "../utils/accessRequests";
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
@@ -22,12 +22,6 @@ const generateStrongPassword = () => {
   let password = ensure.concat(Array.from({ length: 12 }, () => all[Math.floor(Math.random() * all.length)])).join("");
   password = password.split("").sort(() => 0.5 - Math.random()).join("");
   return password;
-};
-
-const buildEmailLink = (email, subject, body) => {
-  const encodedSubject = encodeURIComponent(subject);
-  const encodedBody = encodeURIComponent(body);
-  return `mailto:${email}?subject=${encodedSubject}&body=${encodedBody}`;
 };
 
 export default function AccessRequests({ onBack }) {
@@ -64,6 +58,13 @@ export default function AccessRequests({ onBack }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    const refreshIfActive = async () => {
+      if (!active) return;
+      await refresh();
+    };
+
     const handleRefresh = async (event) => {
       if (event?.detail?.requests) {
         setRequests(event.detail.requests);
@@ -76,15 +77,21 @@ export default function AccessRequests({ onBack }) {
         }
       }
 
-      await refresh();
+      await refreshIfActive();
     };
+
+    const unsubscribeFromRemote = subscribeToAccessRequestChanges(() => {
+      void refreshIfActive();
+    });
 
     window.addEventListener('focus', handleRefresh);
     window.addEventListener('storage', handleRefresh);
     window.addEventListener('kesco-access-requests-updated', handleRefresh);
-    const interval = setInterval(refresh, 10000);
+    const interval = setInterval(refreshIfActive, 10000);
     return () => {
+      active = false;
       clearInterval(interval);
+      unsubscribeFromRemote();
       window.removeEventListener('focus', handleRefresh);
       window.removeEventListener('storage', handleRefresh);
       window.removeEventListener('kesco-access-requests-updated', handleRefresh);

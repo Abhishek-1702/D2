@@ -132,6 +132,7 @@ export default function Projects() {
           return {
             ...p,
             ...remoteProject,
+            progress: p.progress,
             links: remoteProject.links != null ? remoteProject.links : (store[p.id] || p.links || []),
             ppt: remoteProject.ppt != null ? remoteProject.ppt : (p.ppt || null),
             pptName: remoteProject.pptName != null ? remoteProject.pptName : (p.pptName || null),
