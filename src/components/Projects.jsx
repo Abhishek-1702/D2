@@ -601,14 +601,37 @@ function ProjectCharts({ project }) {
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Weekly Load Pattern">
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={chartData.line} barSize={20}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 10 }} unit="MW" />
-              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
-              <Bar dataKey="load" fill="#F5C400" radius={[4, 4, 0, 0]} />
+        <ChartCard title="Substation Load Comparison: 2026-06-03">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={chartData.substationLoad}
+              barGap={3}
+              barCategoryGap="20%"
+              margin={{ top: 18, right: 20, left: 4, bottom: 64 }}
+            >
+              <CartesianGrid stroke="#e5e7eb" vertical={false} />
+              <XAxis
+                dataKey="substation"
+                angle={-35}
+                textAnchor="end"
+                interval={0}
+                height={72}
+                tick={{ fontSize: 11, fill: "#374151" }}
+                label={{ value: "Substation", position: "insideBottom", offset: -18, fill: "#374151", fontSize: 12 }}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#374151" }}
+                label={{ value: "Load (MW)", angle: -90, position: "insideLeft", fill: "#374151", fontSize: 12 }}
+              />
+              <Tooltip contentStyle={{ borderRadius: 4, fontSize: 11 }} />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                iconType="square"
+                wrapperStyle={{ top: -6, right: 0, fontSize: 11 }}
+              />
+              <Bar dataKey="peakDemand" fill="#dc2f27" name="Peak Demand (MW)" />
+              <Bar dataKey="dailyAverage" fill="#2477db" name="Daily Average (MW)" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
