@@ -1,10 +1,37 @@
 import React, { useState } from "react";
 import {
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 import { Check, Clock, AlertCircle } from "lucide-react";
 import { PROJECTS, RECENT_ACTIVITY, TEAM_MEMBERS } from "../data/projects";
+
+const complaintData = [
+  { hour: "0", complaints: 24700, period: "Night" },
+  { hour: "1", complaints: 17000, period: "Night" },
+  { hour: "2", complaints: 11600, period: "Night" },
+  { hour: "3", complaints: 8000, period: "Night" },
+  { hour: "4", complaints: 6200, period: "Night" },
+  { hour: "5", complaints: 7400, period: "Night" },
+  { hour: "6", complaints: 12500, period: "Morning" },
+  { hour: "7", complaints: 19500, period: "Morning" },
+  { hour: "8", complaints: 23900, period: "Morning" },
+  { hour: "9", complaints: 28300, period: "Morning" },
+  { hour: "10", complaints: 32300, period: "Day" },
+  { hour: "11", complaints: 34000, period: "Day" },
+  { hour: "12", complaints: 34700, period: "Day" },
+  { hour: "13", complaints: 33900, period: "Day" },
+  { hour: "14", complaints: 32600, period: "Day" },
+  { hour: "15", complaints: 33700, period: "Day" },
+  { hour: "16", complaints: 33900, period: "Day" },
+  { hour: "17", complaints: 35100, period: "Day" },
+  { hour: "18", complaints: 35000, period: "Evening" },
+  { hour: "19", complaints: 32700, period: "Evening" },
+  { hour: "20", complaints: 28100, period: "Evening" },
+  { hour: "21", complaints: 26700, period: "Evening" },
+  { hour: "22", complaints: 31300, period: "Evening" },
+  { hour: "23", complaints: 30900, period: "Evening" },
+];
 
 const activityIcons = {
   complete: <Check size={14} className="text-[#1f498c] mt-0.5 shrink-0" />,
@@ -202,33 +229,46 @@ export default function Dashboard({ language }) {
           </ResponsiveContainer>
         </div>
 
-        {/* Chart 2: Consumer Segmentation Pie */}
-        <div className="bg-white border border-gray-200 shadow-sm p-3 sm:p-4 flex flex-col md:flex-row items-center">
-          <div className="flex-1 w-full">
-             <h4 className="text-xs sm:text-sm font-bold text-gray-700 mb-3 sm:mb-4 uppercase">Consumer Segmentation (CBA)</h4>
-             <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie
-                  data={PROJECTS[1].chartData.pie}
-                  cx="50%" cy="50%" innerRadius={30} outerRadius={60}
-                  dataKey="value" strokeWidth={0}
-                >
-                  {PROJECTS[1].chartData.pie.map((e, i) => (
-                    <Cell key={i} fill={e.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v) => [`${v}%`]} contentStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="w-full md:w-1/3 mt-3 md:mt-0 space-y-1.5 border-t md:border-t-0 md:border-l border-gray-200 pt-3 md:pt-0 md:pl-4">
-            {PROJECTS[1].chartData.pie.map((s) => (
-              <div key={s.name} className="flex items-center gap-2">
-                <span className="w-2 h-2 sm:w-3 sm:h-3 rounded-sm" style={{ background: s.color }} />
-                <span className="text-xs text-gray-600 flex-1">{s.name}</span>
-                <span className="text-xs font-bold text-gray-800">{s.value}%</span>
-              </div>
-            ))}
+        {/* Chart 2: Intraday Complaint Pattern */}
+        <div className="bg-white border border-gray-200 shadow-sm p-3 sm:p-4">
+          <h4 className="text-xs sm:text-sm font-bold text-gray-700 mb-3 sm:mb-4 uppercase">Intraday Complaint Pattern — Supply / 1912 Data</h4>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={complaintData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis
+                dataKey="hour"
+                tick={{ fontSize: 10, fill: "#6B7280" }}
+                label={{ value: "Hour of the day", position: "insideBottom", offset: -5, fill: "#475569", fontSize: 11 }}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#6B7280" }}
+                label={{ value: "No of complaints", angle: -90, position: "insideLeft", offset: 0, fill: "#475569", fontSize: 11 }}
+              />
+              <Tooltip formatter={(value) => [value.toLocaleString(), "Complaints"]} contentStyle={{ fontSize: 11 }} />
+              <Bar dataKey="complaints" radius={[8, 8, 0, 0]}>
+                {complaintData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      entry.period === 'Night'
+                        ? '#7c3aed'
+                        : entry.period === 'Morning'
+                        ? '#2563eb'
+                        : entry.period === 'Day'
+                        ? '#047857'
+                        : '#d97706'
+                    }
+                  />
+                ))}
+              </Bar>
+              <Line type="monotone" dataKey="complaints" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: '#f59e0b' }} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+            <span className="px-2 py-1 rounded bg-[#ede9fe] text-[#5b21b6]">Night (0–5)</span>
+            <span className="px-2 py-1 rounded bg-[#dbecff] text-[#1d4ed8]">Morning (6–9)</span>
+            <span className="px-2 py-1 rounded bg-[#dcfce7] text-[#166534]">Day (10–17)</span>
+            <span className="px-2 py-1 rounded bg-[#fef3c7] text-[#92400e]">Evening (18–23)</span>
           </div>
         </div>
 
