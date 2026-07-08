@@ -372,7 +372,7 @@ function ProjectRow({ project, index, focused, onClick }) {
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${project.progress}%`,
-              background: project.progress > 50 ? "#F5C400" : project.progress > 20 ? "#3B82F6" : "#D1D5DB",
+              background: project.progress >= 80 ? "#16a34a" : project.progress > 50 ? "#F5C400" : project.progress > 20 ? "#3B82F6" : "#D1D5DB",
             }}
           />
         </div>

@@ -5,3 +5,5 @@ build/
 FIREBASE_SETUP_GUIDE.md
 README-meeting-notifications.md
 FIREBASE_REQUIREMENTS.txt
+supabase/access_requests_setup.sql
+supabase
