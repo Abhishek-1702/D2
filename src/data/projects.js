@@ -4,7 +4,7 @@ export const PROJECTS = [
   {
     id: 1,
     name: "Demand Side Forecasting",
-    shortName: "DSF",
+    shortName: "Demand side forecasting",
     status: "In Progress",
     statusColor: "blue",
     members: ["Shivam Gupta", "Irtiqua Miran", "Nishtha Chakrawarti"],
@@ -89,7 +89,7 @@ export const PROJECTS = [
   {
     id: 2,
     name: "Pattern Analysis & Theft Detection",
-    shortName: "PA",
+    shortName: "Pattern Analysis",
     status: "In Progress",
     statusColor: "blue",
     members: ["Sarthak", "Abhijeet", "Swapnil"],
@@ -154,7 +154,7 @@ export const PROJECTS = [
   {
     id: 3,
     name: "Revenue Loss / Gap Analysis",
-    shortName: "RL",
+    shortName: "Revenue loss",
     status: "In Progress",
     statusColor: "blue",
     members: ["Sanskriti Jaiswal", "Abhay Agnihotri"],
@@ -223,7 +223,7 @@ export const PROJECTS = [
   {
     id: 4,
     name: "Complaint Analysis",
-    shortName: "CA",
+    shortName: "Complaint analysis",
     status: "In Progress",
     statusColor: "blue",
     members: ["Hridhima Srivastav", "Sibgha"],
@@ -278,6 +278,88 @@ export const PROJECTS = [
     ppt: null,
     pptName: null,
   },
+  {
+    id: 5,
+    name: "Substation Information System",
+    shortName: "SIS",
+    status: "In Progress",
+    statusColor: "blue",
+    members: ["Chinmay Kumar", "Mayank Sankhwar", "Imaad Ahmad Ansari", "Aman Mishra", "Harshit"],
+    objective:
+      "Build a centralized substation information system to track assets, maintenance logs, and real-time operational metadata.",
+    workingOn: [
+      "Inventory of substation assets",
+      "GIS tagging and mapping",
+      "Maintenance scheduling and alerting",
+    ],
+    methodology: [
+      "Data modelling",
+      "Lightweight REST API for asset CRUD",
+      "Interactive map UI",
+    ],
+    deliverables: [
+      "Substation asset registry",
+      "Maintenance dashboard",
+      "GIS-enabled substation map",
+    ],
+    progress: 80,
+    updates: [
+      {
+        date: "2026-06-15",
+        title: "Project Kickoff",
+        desc: "Scoping and initial asset inventory plan completed.",
+        member: ["Chinmay Kumar", "Mayank Sankhwar"],
+        time: "10:30 AM",
+      },
+    ],
+    chartData: {
+      bar: [],
+      pie: [],
+    },
+    ppt: null,
+    pptName: null,
+  },
+  {
+    id: 6,
+    name: "Predictive Operation Assets",
+    shortName: "Predictive ops.",
+    status: "In Progress",
+    statusColor: "blue",
+    members: ["Mrityunjay Sachan", "Shrey Nigam", "Shrey Sachan"],
+    objective:
+      "Develop predictive maintenance models for critical operational assets using historical sensor and failure data.",
+    workingOn: [
+      "Collecting historical failure logs",
+      "Feature engineering for asset health",
+      "Prototype predictive models",
+    ],
+    methodology: [
+      "Time-series analysis",
+      "Anomaly detection",
+      "Supervised learning for remaining useful life",
+    ],
+    deliverables: [
+      "Predictive model for asset failures",
+      "Alerting system for maintenance",
+      "Deployment guide",
+    ],
+    progress: 95,
+    updates: [
+      {
+        date: "2026-06-18",
+        title: "Data Acquisition",
+        desc: "Historical logs prepared and initial features extracted.",
+        member: ["Mrityunjay Sachan", "Shrey Nigam"],
+        time: "02:00 PM",
+      },
+    ],
+    chartData: {
+      bar: [],
+      pie: [],
+    },
+    ppt: null,
+    pptName: null,
+  },
 ];
 
 export const TEAM_MEMBERS = [
@@ -299,6 +381,10 @@ export const TEAM_MEMBERS = [
   { name: "Aman Mishra", role:"Intern",avatar:"AM"},
   { name: "Imaad Ansari", role:"Intern",avatar:"IA"},
   { name: "Harsh Raj", role:"Intern", avatar:"HR"},
+  { name: "Harshit", role:"Intern", avatar:"HT"},
+  { name: "Mrityunjay Sachan", role: "Intern", avatar: "MJ" },
+  { name: "Shrey Nigam", role: "Intern", avatar: "SN" },
+  { name: "Shrey Sachan", role: "Intern", avatar: "SS" },
 ];
 
 export const RECENT_ACTIVITY = [

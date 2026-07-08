@@ -43,17 +43,15 @@ export default function Dashboard({ language }) {
   const [showAllRecent, setShowAllRecent] = useState(false);
   const isHindi = language === 'hi';
 
+  
+
   return (
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       {/* Section Title */}
       <div className="mb-4 sm:mb-6">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1f498c] tracking-tight border-b-2 border-[#1f498c] inline-block pr-4 sm:pr-8 pb-1">
-          {isHindi ? 'डाटा कंट्रोल सेंटर' : 'DATA Control Center'}
+        <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold text-[#1f498c] tracking-tight border-b-2 border-[#1f498c] inline-block pr-4 sm:pr-8 pb-1">
+          {isHindi ? 'प्रोजेक्ट कमांड सेंटर' : 'Project Command Center'}
         </h2>
-        <p className="mt-2 sm:mt-4 max-w-2xl text-sm sm:text-lg text-gray-700 leading-7 sm:leading-8">
-          <span className="text-[#1f498c] font-semibold"> </span>
-          <span className="font-bold text-[#1f498c]">Insight. Intelligence. Impact.</span>
-        </p>
       </div>
 
 
@@ -70,14 +68,14 @@ export default function Dashboard({ language }) {
               <li className="flex items-start gap-2 text-xs sm:text-sm text-gray-700">
                 <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
                 <div>
-                   <span className="font-semibold">Total Projects: 5</span><br/>
+                   <span className="font-semibold">Total Projects: {PROJECTS.length}</span><br/>
                    <span className="text-xs text-gray-500">Across all domains</span>
                 </div>
               </li>
               <li className="flex items-start gap-2 text-xs sm:text-sm text-gray-700">
                 <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
                 <div>
-                   <span className="font-semibold">Team Members: 15</span><br/>
+                   <span className="font-semibold">Team Members: {TEAM_MEMBERS.length}</span><br/>
                    <span className="text-xs text-gray-500">Actively contributing</span>
                 </div>
               </li>
@@ -98,7 +96,7 @@ export default function Dashboard({ language }) {
              <span>🚀</span> <span className="hidden sm:inline">PROJECT HIGHLIGHTS</span><span className="sm:hidden">PROJECTS</span>
           </div>
           <div className="p-3 sm:p-4 flex-1">
-            <ul className="space-y-3 sm:space-y-4">
+            <ul className="space-y-3 sm:space-y-4 max-h-[220px] overflow-y-auto pr-2">
               {PROJECTS.map((p, i) => (
                 <li key={p.id} className="flex items-start gap-2 text-xs sm:text-sm text-gray-700">
                   <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
@@ -134,6 +132,14 @@ export default function Dashboard({ language }) {
               <li className="flex items-start gap-2 text-xs sm:text-sm text-gray-700 hover:text-orange-600 cursor-pointer transition-colors">
                 <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
                 <span>Weekly Load Patterns</span>
+              </li>
+              <li className="flex items-start gap-2 text-xs sm:text-sm text-gray-700 hover:text-orange-600 cursor-pointer transition-colors">
+                <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <span>Substation Information System (SIS)</span>
+              </li>
+              <li className="flex items-start gap-2 text-xs sm:text-sm text-gray-700 hover:text-orange-600 cursor-pointer transition-colors">
+                <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <span>Predictive Operation Assets</span>
               </li>
             </ul>
           </div>
@@ -273,6 +279,8 @@ export default function Dashboard({ language }) {
         </div>
 
       </div>
+
+      
     </div>
   );
 }

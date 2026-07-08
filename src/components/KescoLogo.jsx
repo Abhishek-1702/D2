@@ -22,6 +22,10 @@ export default function KescoLogo() {
         Supply Company Ltd.
       </p>
 
+      <p className="mt-2 text-sm font-semibold text-[#1f498c]">
+        Insight. Intelligence. Impact.
+      </p>
+
     </div>
   );
 }

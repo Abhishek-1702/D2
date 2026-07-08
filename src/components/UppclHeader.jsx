@@ -526,6 +526,9 @@ export default function UppclHeader({ activeTab, setActiveTab, language = 'en', 
               <span className="text-xs sm:text-[16px] font-bold text-orange-500 leading-tight">
                 Supply Company Ltd.
               </span>
+              <span className="mt-1 text-xs sm:text-sm font-semibold text-[#1f498c]">
+                Insight. Intelligence. Impact.
+              </span>
             </div>
           </div>
 

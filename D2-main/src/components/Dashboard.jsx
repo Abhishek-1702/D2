@@ -43,7 +43,7 @@ export default function Dashboard({ language }) {
               <li className="flex items-start gap-2 text-xs sm:text-sm text-gray-700">
                 <Check size={16} className="text-blue-500 shrink-0 mt-0.5" />
                 <div>
-                   <span className="font-semibold">Total Projects: 4</span><br/>
+                   <span className="font-semibold">Total Projects: 7</span><br/>
                    <span className="text-xs text-gray-500">Across all domains</span>
                 </div>
               </li>

@@ -307,7 +307,7 @@ export default function Projects() {
         </p>
       </div>
 
-      <div className="px-8 py-6" ref={listRef}>
+      <div className="px-8 py-6 max-h-[60vh] overflow-y-auto" ref={listRef}>
         {/*
         <div className="mb-4 flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-xl px-4 py-2.5 w-fit border border-gray-100">
           <span>Use</span>
