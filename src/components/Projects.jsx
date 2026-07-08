@@ -133,6 +133,7 @@ export default function Projects() {
             ...p,
             ...remoteProject,
             progress: p.progress,
+            chartData: p.chartData,
             links: remoteProject.links != null ? remoteProject.links : (store[p.id] || p.links || []),
             ppt: remoteProject.ppt != null ? remoteProject.ppt : (p.ppt || null),
             pptName: remoteProject.pptName != null ? remoteProject.pptName : (p.pptName || null),
@@ -587,7 +588,7 @@ function ProjectCharts({ project }) {
   if (id === 1) {
     return (
       <>
-        <ChartCard title="Forecast vs Actual (MW)">
+        <ChartCard title="Monthly Load Forecast vs Actual (MW)">
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={chartData.bar}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
@@ -595,8 +596,8 @@ function ProjectCharts({ project }) {
               <YAxis tick={{ fontSize: 10 }} unit="MW" />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 11 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="forecast" stroke="#F5C400" strokeWidth={2} dot={{ r: 3 }} name="Forecast" />
-              <Line type="monotone" dataKey="actual" stroke="#3B82F6" strokeWidth={2} dot={{ r: 3 }} name="Actual" />
+              <Line type="monotone" dataKey="forecast" stroke="#ff6f3b" strokeWidth={2.5} dot={{ r: 3 }} name="Forecast" />
+              <Line type="monotone" dataKey="actual" stroke="#1f498c" strokeWidth={2.5} dot={{ r: 3 }} name="Actual" />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
