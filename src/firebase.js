@@ -48,6 +48,7 @@ console.log("Firebase Configured:", isFirebaseConfigured);
 let app = null;
 let db = null;
 let auth = null;
+let userCreationAuth = null;
 
 if (isFirebaseConfigured) {
   try {
@@ -57,6 +58,17 @@ if (isFirebaseConfigured) {
   } catch (e) {
     console.error("Firebase init error:", e);
   }
+}
+
+function getUserCreationAuth() {
+  if (!isFirebaseConfigured) throw new Error("Firebase Auth not initialized");
+
+  if (!userCreationAuth) {
+    const creationApp = initializeApp(firebaseConfig, "user-creation");
+    userCreationAuth = getAuth(creationApp);
+  }
+
+  return userCreationAuth;
 }
 
 export { auth, db };
@@ -79,37 +91,18 @@ export async function registerWithEmailPassword(email, password) {
 }
 
 export async function createFirebaseUser(email, password) {
-  const apiKey = firebaseConfig.apiKey;
-  if (!apiKey) throw new Error("Firebase API key is not configured");
+  const creationAuth = getUserCreationAuth();
 
-  const payload = {
+  console.debug("Creating Firebase user via auth SDK", email);
+
+  const userCredential = await createUserWithEmailAndPassword(
+    creationAuth,
     email,
-    password,
-    returnSecureToken: true,
-  };
-
-  console.debug("Creating Firebase user via REST API", email);
-
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }
+    password
   );
 
-  const data = await response.json();
-  if (!response.ok) {
-    const message = data?.error?.message || "Failed to create Firebase user";
-    const error = new Error(message);
-    error.code = data?.error?.message || message;
-    console.error("Firebase REST user creation failed", error.code, data);
-    throw error;
-  }
-
-  console.debug("Firebase user created via REST API", data.email);
-  return data;
+  console.debug("Firebase user created via auth SDK", userCredential.user?.email);
+  return userCredential.user;
 }
 
 export async function signInWithEmailPassword(email, password) {
