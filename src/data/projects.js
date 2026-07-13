@@ -325,7 +325,7 @@ export const PROJECTS = [
     shortName: "Predictive ops.",
     status: "In Progress",
     statusColor: "blue",
-    members: ["Mrityunjay Sachan", "Shrey Nigam", "Shrey Sachan"],
+    members: ["Mrityunjay Sachan", "Shrey Nigam", "Shrey Shukla"],
     objective:
       "Develop predictive maintenance models for critical operational assets using historical sensor and failure data.",
     workingOn: [
@@ -349,7 +349,7 @@ export const PROJECTS = [
         date: "2026-06-18",
         title: "Data Acquisition",
         desc: "Historical logs prepared and initial features extracted.",
-        member: ["Mrityunjay Sachan", "Shrey Nigam"],
+        member: ["Mrityunjay Sachan", "Shrey Nigam", "Shrey Shukla"],
         time: "02:00 PM",
       },
     ],
@@ -384,7 +384,7 @@ export const TEAM_MEMBERS = [
   { name: "Harshit", role:"Intern", avatar:"HT"},
   { name: "Mrityunjay Sachan", role: "Intern", avatar: "MJ" },
   { name: "Shrey Nigam", role: "Intern", avatar: "SN" },
-  { name: "Shrey Sachan", role: "Intern", avatar: "SS" },
+  { name: "Shrey Shukla", role: "Intern", avatar: "SS" },
 ];
 
 export const RECENT_ACTIVITY = [
