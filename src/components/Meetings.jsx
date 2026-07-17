@@ -6,6 +6,7 @@ import { deleteFile, uploadFileToStorage, isSupabaseConfigured } from "../supaba
 import { useAuth } from "../contexts/AuthContext";
 import { appendSectionDocument, buildUploadedDocument, formatTimestamp, getSectionDocuments, getStoragePathFromUrl, isAdminUser, readSharedJsonFile, removeSectionDocument, saveSectionDocuments, writeSharedJsonFile } from "../utils/documentPersistence";
 import { buildMeetingEmailLink, buildMeetingNotificationText, getAuthorityOptions, readNotificationEmailConfig, requestBrowserNotificationPermission, sendBrowserMeetingNotification, setNotificationEmailForDesignation, writeNotificationEmailConfig } from "../utils/meetingNotifications";
+import { sendAutomatedEmail } from "../utils/emailSender";
 
 const MEETINGS_STORAGE_KEY = "kesco_meetings_v1";
 const SCHEDULED_MEETINGS_STORAGE_KEY = "kesco_scheduled_meetings_v1";
@@ -424,11 +425,29 @@ export default function Meetings() {
         setNotificationEmailEditorDesignation(missingEmails[0]);
         return;
       }
-      const mailLink = buildMeetingEmailLink(meeting, recipientList, notificationEmailConfig);
-      if (browserSent || mailLink) {
-        setNotificationStatus(`Notification prepared${permission === "granted" ? " and sent to browser" : ""}${mailLink ? " and email draft opened" : ""}.`);
-        if (mailLink) {
-          window.location.href = mailLink;
+      const normalizedRecipients = recipientList
+        .map((designation) => notificationEmailConfig[designation])
+        .filter(Boolean);
+      const mailLink = normalizedRecipients.length > 0 ? buildMeetingEmailLink(meeting, recipientList, notificationEmailConfig) : null;
+      if (browserSent || normalizedRecipients.length > 0) {
+        setNotificationStatus(`Notification prepared${permission === "granted" ? " and sent to browser" : ""}${normalizedRecipients.length > 0 ? " and email sent" : ""}.`);
+        if (normalizedRecipients.length > 0) {
+          const subjectText = `Meeting notification: ${meeting.authorityName || meeting.title || "Scheduled meeting"}`;
+          const bodyText = `Hello,\n\n${buildMeetingNotificationText(meeting, recipientList)}\n\nRegards,\nKESCO Portal`;
+          const result = await sendAutomatedEmail({
+            to: normalizedRecipients.join(","),
+            subject: subjectText,
+            message: bodyText,
+            templateId: process.env.REACT_APP_EMAILJS_MEETING_TEMPLATE_ID,
+            templateParams: {
+              to_email: normalizedRecipients.join(","),
+              subject: subjectText,
+              message: bodyText,
+            },
+          });
+          if (!result.ok && result.fallbackUrl) {
+            window.location.href = result.fallbackUrl;
+          }
         }
       } else {
         setNotificationStatus("Browser notification permission denied and no mail setup was found.");

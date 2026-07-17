@@ -4,6 +4,7 @@ import { readRequests, readCachedRequests, updateRequestStatus, clearAllRequests
 import { readSharedJsonFile, writeSharedJsonFile } from "../utils/documentPersistence";
 import { isFirebaseConfigured, createFirebaseUser } from "../firebase";
 import { registerAuthorityOption } from "../data/officers";
+import { sendAutomatedEmail } from "../utils/emailSender";
 
 const generateStrongPassword = () => {
   const lower = "abcdefghijkmnopqrstuvwxyz";
@@ -98,10 +99,30 @@ export default function AccessRequests({ onBack }) {
     };
   }, []);
 
-  const buildEmailLink = (email, subject, body) => {
-    const encodedSubject = encodeURIComponent(subject);
-    const encodedBody = encodeURIComponent(body);
-    return `mailto:${email}?subject=${encodedSubject}&body=${encodedBody}`;
+  const sendAccessDecisionEmail = async (email, subject, body, decisionType, recipientName) => {
+    const result = await sendAutomatedEmail({
+      to: email,
+      subject,
+      message: body,
+      templateId: process.env.REACT_APP_EMAILJS_ACCESS_TEMPLATE_ID,
+      templateParams: {
+        to_email: email,
+        subject,
+        message: body,
+        decision_type: decisionType,
+        recipient_name: recipientName || email,
+      },
+    });
+
+    if (result.ok) {
+      return result;
+    }
+
+    if (result.fallbackUrl) {
+      window.location.href = result.fallbackUrl;
+    }
+
+    return result;
   };
 
   const saveUserProfileMetadata = async (email, metadata) => {
@@ -156,7 +177,7 @@ export default function AccessRequests({ onBack }) {
 
       const subject = "Access granted to KESCO dashboard";
       const body = `Hello ${request.name},\n\nYour access request has been approved. Use the following temporary password to sign in:\n\nEmail: ${request.email}\nPassword: ${tempPassword}\n\nAfter signing in, you will be prompted to change your password.\n\nIf you did not request access, please ignore this message.`;
-      window.location.href = buildEmailLink(request.email, subject, body);
+      await sendAccessDecisionEmail(request.email, subject, body, "approved", request.name);
     } catch (error) {
       console.error('Approve failed', error);
       // eslint-disable-next-line no-alert
@@ -177,7 +198,7 @@ export default function AccessRequests({ onBack }) {
 
       const subject = "Access request declined";
       const body = `Hello ${request.name},\n\nYour request for access has been declined. If you believe this is a mistake, please contact the admin.\n\nRegards,\nKESCO Portal`;
-      window.location.href = buildEmailLink(request.email, subject, body);
+      await sendAccessDecisionEmail(request.email, subject, body, "rejected", request.name);
     } catch (error) {
       console.error('Reject failed', error);
       // eslint-disable-next-line no-alert
