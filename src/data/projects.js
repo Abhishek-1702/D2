@@ -111,7 +111,7 @@ export const PROJECTS = [
       "Usage pattern graphs",
       "Energy saving recommendations",
     ],
-    progress: 60,
+    progress: 100,
     updates: [
       {
         date: "2026-06-10",
@@ -176,7 +176,7 @@ export const PROJECTS = [
       "High-loss area identification map",
       "Improvement suggestions and action plan",
     ],
-    progress: 60,
+    progress: 100,
     updates: [
       {
         date: "2026-06-10",
@@ -245,7 +245,7 @@ export const PROJECTS = [
       "Resolution efficiency analysis",
       "Service improvement action plan",
     ],
-    progress: 85,
+    progress: 100,
     updates: [
       {
         date: "2026-06-10",
@@ -302,7 +302,7 @@ export const PROJECTS = [
       "Maintenance dashboard",
       "GIS-enabled substation map",
     ],
-    progress: 80,
+    progress: 100,
     updates: [
       {
         date: "2026-06-15",
@@ -343,7 +343,7 @@ export const PROJECTS = [
       "Alerting system for maintenance",
       "Deployment guide",
     ],
-    progress: 95,
+    progress: 100,
     updates: [
       {
         date: "2026-06-18",
