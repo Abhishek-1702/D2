@@ -25,7 +25,7 @@ export const PROJECTS = [
       "Peak demand prediction report",
       "Planning recommendations document",
     ],
-    progress: 65,
+    progress: 100,
     updates: [
       {
         date: "2026-06-10",
