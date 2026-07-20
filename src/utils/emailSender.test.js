@@ -28,7 +28,7 @@ describe('sendAutomatedEmail', () => {
     );
   });
 
-  it('returns a mailto fallback when EmailJS is not configured', async () => {
+  it('returns an error without opening a mail draft when EmailJS is not configured', async () => {
     delete process.env.REACT_APP_EMAILJS_SERVICE_ID;
     delete process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
 
@@ -40,7 +40,7 @@ describe('sendAutomatedEmail', () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.method).toBe('mailto');
-    expect(result.fallbackUrl).toContain('mailto:user@example.com');
+    expect(result.method).toBe('none');
+    expect(result.error).toBe('Email delivery unavailable');
   });
 });

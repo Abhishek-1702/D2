@@ -118,10 +118,6 @@ export default function AccessRequests({ onBack }) {
       return result;
     }
 
-    if (result.fallbackUrl) {
-      window.location.href = result.fallbackUrl;
-    }
-
     return result;
   };
 

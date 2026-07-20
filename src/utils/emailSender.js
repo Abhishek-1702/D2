@@ -1,19 +1,12 @@
 const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
 const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
 
-function buildMailtoUrl(to, subject, message) {
-  const encodedSubject = encodeURIComponent(subject || 'Message');
-  const encodedBody = encodeURIComponent(message || '');
-  return `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
-}
-
 export async function sendAutomatedEmail({
   to,
   subject,
   message,
   templateId,
   templateParams = {},
-  fallbackToMailto = true,
 }) {
   const resolvedTo = Array.isArray(to) ? to.filter(Boolean).join(',') : (to || '').trim();
   if (!resolvedTo) {
@@ -52,14 +45,6 @@ export async function sendAutomatedEmail({
     } catch (error) {
       console.error('EmailJS send failed', error);
     }
-  }
-
-  if (fallbackToMailto) {
-    return {
-      ok: false,
-      method: 'mailto',
-      fallbackUrl: buildMailtoUrl(resolvedTo, subject, message),
-    };
   }
 
   return { ok: false, method: 'none', error: 'Email delivery unavailable' };

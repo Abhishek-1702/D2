@@ -445,9 +445,6 @@ export default function Meetings() {
               message: bodyText,
             },
           });
-          if (!result.ok && result.fallbackUrl) {
-            window.location.href = result.fallbackUrl;
-          }
         }
       } else {
         setNotificationStatus("Browser notification permission denied and no mail setup was found.");

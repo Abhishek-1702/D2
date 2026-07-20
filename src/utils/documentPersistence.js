@@ -52,18 +52,33 @@ function writeStore(store) {
   }
 }
 
+function sortDocumentsChronologically(documents) {
+  return [...documents].sort((left, right) => {
+    const leftTime = left?.uploadedAt ? new Date(left.uploadedAt).getTime() : 0;
+    const rightTime = right?.uploadedAt ? new Date(right.uploadedAt).getTime() : 0;
+
+    if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+    if (Number.isNaN(leftTime)) return 1;
+    if (Number.isNaN(rightTime)) return -1;
+
+    return rightTime - leftTime;
+  });
+}
+
 export function getSectionDocuments(sectionType, sectionId) {
   const store = readStore();
   const key = `${sectionType}:${sectionId}`;
   const documents = Array.isArray(store[key]) ? store[key] : [];
-  return documents.filter((document) => matchesSectionScope(document, sectionType, sectionId));
+  return sortDocumentsChronologically(
+    documents.filter((document) => matchesSectionScope(document, sectionType, sectionId))
+  );
 }
 
 export function saveSectionDocuments(sectionType, sectionId, documents) {
   const store = readStore();
   const key = `${sectionType}:${sectionId}`;
   const normalizedDocuments = Array.isArray(documents)
-    ? documents.map((document) => normalizeSectionDocument(document, sectionType, sectionId))
+    ? sortDocumentsChronologically(documents.map((document) => normalizeSectionDocument(document, sectionType, sectionId)))
     : [];
   store[key] = normalizedDocuments;
   writeStore(store);
@@ -83,13 +98,16 @@ export function mergeSectionDocuments(remoteDocuments, fallbackDocuments, sectio
     merged.push(normalizeSectionDocument(doc, sectionType, sectionId));
   });
 
-  return merged;
+  return sortDocumentsChronologically(merged);
 }
 
 export function appendSectionDocument(sectionType, sectionId, document) {
   const existing = getSectionDocuments(sectionType, sectionId);
   const scopedDocument = normalizeSectionDocument(document, sectionType, sectionId);
-  const next = [scopedDocument, ...existing.filter((item) => item.id !== scopedDocument.id)];
+  const next = sortDocumentsChronologically([
+    scopedDocument,
+    ...existing.filter((item) => item.id !== scopedDocument.id),
+  ]);
   saveSectionDocuments(sectionType, sectionId, next);
   return next;
 }
